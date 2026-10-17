@@ -27,7 +27,10 @@ export type CustomerOrderStatus =
   | "delivered"
   | "cancelled";
 
-export type SupplierOrderStatus = "new" | "confirmed" | "preparing" | "ready" | "completed";
+export type SupplierOrderStatus = "new" | "confirmed" | "preparing" | "ready" | "completed" | "cancelled";
+
+export type RefundAccountMethod = "mobile_money" | "bank_account";
+export type RefundRequestStatus = "awaiting_account" | "pending" | "processing" | "refunded";
 
 export type PaymentMethod = "Mobile Money" | "Bank Card" | "Bank Transfer";
 
@@ -44,6 +47,8 @@ export type ProfileRow = {
   email: string;
   full_name: string;
   phone: string | null;
+  organization: string;
+  about: string;
   role: UserRole;
   status: AccountStatus;
   /** Marketplace tenant id for an approved supplier account. */
@@ -255,6 +260,34 @@ export type ReleasedOrderRow = {
   released_at: string;
 };
 
+export type RefundAccountRow = {
+  id: string;
+  customer_id: string;
+  label: string;
+  method: RefundAccountMethod;
+  provider: string;
+  account_name: string;
+  account_number: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RefundRequestRow = {
+  id: string;
+  order_id: string;
+  supplier_order_id: string;
+  supplier_id: string;
+  customer_id: string;
+  order_number: string;
+  amount: number;
+  status: RefundRequestStatus;
+  refund_account_id: string | null;
+  admin_note: string;
+  created_at: string;
+  updated_at: string;
+  processed_at: string | null;
+};
+
 export type AddressRow = {
   id: string;
   customer_id: string | null;
@@ -283,6 +316,12 @@ export type NotificationRow = {
   supplier_id: string | null;
   order_id: string | null;
   order_number: string | null;
+  created_at: string;
+};
+
+export type SavedProductRow = {
+  customer_id: string;
+  product_id: string;
   created_at: string;
 };
 
@@ -318,6 +357,8 @@ type ProfileInsert = {
   email: string;
   full_name?: string;
   phone?: string | null;
+  organization?: string;
+  about?: string;
   role?: UserRole;
   status?: AccountStatus;
   supplier_id?: string | null;
@@ -435,6 +476,10 @@ type AddressUpdate = Partial<Omit<AddressRow, "id" | "customer_id" | "customer_e
 
 type NotificationUpdate = Partial<Pick<NotificationRow, "read" | "title" | "message">>;
 
+type RefundAccountInsert = Omit<RefundAccountRow, "id" | "created_at" | "updated_at">;
+type RefundAccountUpdate = Partial<Omit<RefundAccountRow, "id" | "customer_id" | "created_at" | "updated_at">>;
+type RefundRequestUpdate = Partial<Pick<RefundRequestRow, "status" | "admin_note" | "processed_at">>;
+
 type PricingConfigUpdate = Partial<Omit<PricingConfigRow, "id" | "updated_at">>;
 
 export interface Database {
@@ -506,6 +551,18 @@ export interface Database {
         Update: never;
         Relationships: [];
       };
+      refund_accounts: {
+        Row: RefundAccountRow;
+        Insert: RefundAccountInsert;
+        Update: RefundAccountUpdate;
+        Relationships: [];
+      };
+      refund_requests: {
+        Row: RefundRequestRow;
+        Insert: never;
+        Update: RefundRequestUpdate;
+        Relationships: [];
+      };
       addresses: {
         Row: AddressRow;
         Insert: AddressInsert;
@@ -516,6 +573,12 @@ export interface Database {
         Row: NotificationRow;
         Insert: never;
         Update: NotificationUpdate;
+        Relationships: [];
+      };
+      saved_products: {
+        Row: SavedProductRow;
+        Insert: Omit<SavedProductRow, "created_at">;
+        Update: never;
         Relationships: [];
       };
       pricing_config: {
@@ -566,6 +629,14 @@ export interface Database {
       };
       customer_confirm_delivery: {
         Args: { p_order_id: string };
+        Returns: undefined;
+      };
+      supplier_cancel_order: {
+        Args: { p_supplier_order_id: string };
+        Returns: undefined;
+      };
+      customer_select_refund_account: {
+        Args: { p_refund_id: string; p_refund_account_id: string };
         Returns: undefined;
       };
       admin_release_supplier_funds: {

@@ -17,14 +17,12 @@ import { mwk, prettyDate } from "../../lib/format";
 import { setOrderStatus, useOrderStatuses } from "../../lib/registry";
 import { useToast } from "../../lib/toast";
 
-const statusOptions: CustomerOrderStatus[] = [
-  "confirmed",
-  "preparing",
-  "ready",
-  "out_for_delivery",
-  "delivered",
-  "cancelled",
-];
+function availableStatuses(status: CustomerOrderStatus): CustomerOrderStatus[] {
+  if (status === "confirmed" || status === "preparing") return [status, "cancelled"];
+  if (status === "ready") return [status, "out_for_delivery", "cancelled"];
+  if (status === "out_for_delivery") return [status, "delivered", "cancelled"];
+  return [status];
+}
 
 export default function AdminOrderDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -80,7 +78,7 @@ export default function AdminOrderDetailsPage() {
               aria-label={`Change status for ${order.number}`}
               onChange={(event) => void changeStatus(event.target.value as CustomerOrderStatus)}
             >
-              {statusOptions.map((option) => (
+              {availableStatuses(status).map((option) => (
                 <option key={option} value={option}>{option.replace(/_/g, " ")}</option>
               ))}
             </select>

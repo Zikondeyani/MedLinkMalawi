@@ -1,6 +1,6 @@
-import { ArrowLeft, Check, MapPin, PackageCheck, Phone, Truck } from "lucide-react";
+import { ArrowLeft, Ban, Check, MapPin, PackageCheck, Phone, Truck } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
-import { updateSupplierOrderStatus, useSupplierOrderById } from "../../lib/customerData";
+import { cancelSupplierOrder, updateSupplierOrderStatus, useSupplierOrderById } from "../../lib/customerData";
 import type { SupplierOrderStatus } from "../../data/types";
 import { supplyOrderStatusSteps } from "../../lib/analytics";
 import { mwk, shortDate } from "../../lib/format";
@@ -38,6 +38,16 @@ export default function SupplierOrderDetailsPage() {
     if (to === "ready") push({ title: "Marked as ready", message: `MedLink will collect ${order.number}.`, icon: "order" });
   };
 
+  const cancelOrder = async () => {
+    if (!window.confirm(`Cancel your items in ${order.number}? The customer will be notified and can request a refund of the item subtotal.`)) return;
+    const result = await cancelSupplierOrder(order.id);
+    if (!result.ok) {
+      push({ title: "Could not cancel order", message: result.error ?? "The cancellation was rejected.", icon: "error" });
+      return;
+    }
+    push({ title: "Store items cancelled", message: "The customer and MedLink have been notified about the refund.", icon: "success" });
+  };
+
   return (
     <div className="stack">
       <Link to="/supplier/orders" className="link-muted xs row" style={{ gap: 6 }}>
@@ -55,6 +65,8 @@ export default function SupplierOrderDetailsPage() {
         </div>
       </div>
 
+      {order.status !== "cancelled" && (
+      <>
       {/* Supplier status steps */}
       <div className="card card-pad">
         <h2 className="h-card" style={{ marginBottom: 18 }}>Fulfilment status</h2>
@@ -92,13 +104,29 @@ export default function SupplierOrderDetailsPage() {
               <Truck size={14} /> Awaiting MedLink collection
             </span>
           )}
+          {["new", "confirmed", "preparing", "ready"].includes(order.status) && (
+            <button className="btn btn-outline btn-sm" onClick={() => void cancelOrder()}>
+              <Ban size={14} /> Cancel store items
+            </button>
+          )}
         </div>
       </div>
+      </>
+      )}
+
+      {order.status === "cancelled" && (
+        <div className="card card-pad">
+          <h2 className="h-card">Store items cancelled</h2>
+          <p className="small muted" style={{ marginTop: 6 }}>
+            The customer has been notified. Their refund request covers the item subtotal only; MedLink delivery and service fees are excluded.
+          </p>
+        </div>
+      )}
 
       <div className="grid" style={{ gridTemplateColumns: "1.5fr 1fr", alignItems: "start" }}>
         <div className="stack">
           <div className="card card-pad">
-            <h2 className="h-card" style={{ marginBottom: 14 }}>What to prepare</h2>
+            <h2 className="h-card" style={{ marginBottom: 14 }}>{order.status === "cancelled" ? "Cancelled items" : "What to prepare"}</h2>
             <div className="stack-sm">
               {order.lines.map((l) => (
                 <div key={l.productId + l.name} className="review-line">

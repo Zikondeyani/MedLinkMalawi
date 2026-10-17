@@ -1,4 +1,4 @@
-import { Heart, ShoppingCart } from "lucide-react";
+import { Heart, Loader2, ShoppingCart } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getSupplierById } from "../../lib/registry";
 import type { Product } from "../../data/types";
@@ -32,8 +32,9 @@ export default function ProductCard({ product, compact = false }: { product: Pro
   const supplier = getSupplierById(product.supplierId);
   const { add } = useCart();
   const { push } = useToast();
-  const { has, toggle } = useWishlist();
+  const { has, isPending, toggle, loading: wishlistLoading } = useWishlist();
   const wished = has(product.id);
+  const savingWish = isPending(product.id);
 
   return (
     <article className={`card card-hover pcard${compact ? " pcard-compact" : ""}`}>
@@ -45,17 +46,18 @@ export default function ProductCard({ product, compact = false }: { product: Pro
         <button
           className={`btn btn-icon wish-btn${wished ? " wished" : ""}`}
           aria-label={wished ? "Remove from saved" : "Save product"}
-          onClick={(e) => {
+          disabled={savingWish || wishlistLoading}
+          onClick={async (e) => {
             e.preventDefault();
-            toggle(product.id);
-            push({
+            const saved = await toggle(product.id);
+            if (saved) push({
               title: wished ? "Removed from saved" : "Saved to wishlist",
               message: product.name,
               icon: "info",
             });
           }}
         >
-          <Heart size={17} fill={wished ? "currentColor" : "none"} />
+          {savingWish ? <Loader2 size={16} className="spin" /> : <Heart size={17} fill={wished ? "currentColor" : "none"} />}
         </button>
       </div>
 

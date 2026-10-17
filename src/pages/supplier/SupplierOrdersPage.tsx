@@ -15,15 +15,16 @@ const stageOrder: SupplierOrderStatus[] = ["new", "confirmed", "preparing", "rea
 export default function SupplierOrdersPage() {
   const { push } = useToast();
   const supplierId = useCurrentSupplierId();
-  const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
+  const [filter, setFilter] = useState<"all" | "pending" | "completed" | "cancelled">("all");
   // The database decides which rows this store may see; no local copy.
   const orders: SupplierOrder[] = useSupplierOrders().filter(
     (order) => !supplierId || order.supplierId === supplierId,
   );
 
   const visible = useMemo(() => {
-    if (filter === "pending") return orders.filter((o) => o.status !== "completed");
+    if (filter === "pending") return orders.filter((o) => o.status !== "completed" && o.status !== "cancelled");
     if (filter === "completed") return orders.filter((o) => o.status === "completed");
+    if (filter === "cancelled") return orders.filter((o) => o.status === "cancelled");
     return orders;
   }, [orders, filter]);
 
@@ -128,8 +129,9 @@ export default function SupplierOrdersPage() {
 
       <div className="row wrap">
         <button className={filter === "all" ? "chip chip-active" : "chip"} onClick={() => setFilter("all")}>All ({orders.length})</button>
-        <button className={filter === "pending" ? "chip chip-active" : "chip"} onClick={() => setFilter("pending")}>Pending ({orders.filter((o) => o.status !== "completed").length})</button>
+        <button className={filter === "pending" ? "chip chip-active" : "chip"} onClick={() => setFilter("pending")}>Pending ({orders.filter((o) => o.status !== "completed" && o.status !== "cancelled").length})</button>
         <button className={filter === "completed" ? "chip chip-active" : "chip"} onClick={() => setFilter("completed")}>Completed ({orders.filter((o) => o.status === "completed").length})</button>
+        <button className={filter === "cancelled" ? "chip chip-active" : "chip"} onClick={() => setFilter("cancelled")}>Cancelled ({orders.filter((o) => o.status === "cancelled").length})</button>
       </div>
 
       <DataTable

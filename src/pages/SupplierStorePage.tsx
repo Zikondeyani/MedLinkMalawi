@@ -165,7 +165,7 @@ export default function SupplierStorePage() {
             {visibleProducts.length === 0 ? (
               <EmptyState icon="search" title="No products in this category" message="Try another category." />
             ) : (
-              <ProductGrid products={visibleProducts} cols={3} />
+              <ProductGrid products={visibleProducts} cols={4} />
             )}
           </div>
         )}

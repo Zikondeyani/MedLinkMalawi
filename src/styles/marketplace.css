@@ -2130,6 +2130,24 @@
   text-align: left;
   transition: border-color 0.15s;
 }
+.notification-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.notification-row .notification-card {
+  flex: 1;
+  min-width: 0;
+}
+.notification-delete {
+  align-self: center;
+  flex: none;
+  color: var(--muted);
+}
+.notification-delete:hover:not(:disabled) {
+  color: var(--red, #b42318);
+  background: #fef2f2;
+}
 .notification-card.unread {
   border-color: rgba(255, 183, 77, 0.5);
   background: #fffcf5;

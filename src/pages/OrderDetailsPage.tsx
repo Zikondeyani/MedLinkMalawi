@@ -1,25 +1,30 @@
 import { ArrowLeft, CalendarClock, CheckCircle2, MapPin, Package, RotateCcw, Truck, Wallet } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
-import { confirmCustomerDelivery, useCustomerOrderById } from "../lib/customerData";
+import { confirmCustomerDelivery, useCustomerOrderById, useSupplierOrders } from "../lib/customerData";
 import { useAuth } from "../lib/auth";
 import { getSupplierById } from "../lib/registry";
 import { prettyDate, prettyDateTime, mwk } from "../lib/format";
 import { useCart } from "../lib/cart";
 import { useToast } from "../lib/toast";
 import OrderTimeline, { DeliveryFlow } from "../components/marketplace/OrderTimeline";
-import { CustomerOrderStatusBadge } from "../components/marketplace/OrderStatus";
+import { CustomerOrderStatusBadge, SupplierOrderStatusBadge } from "../components/marketplace/OrderStatus";
 import OrderItemImage from "../components/marketplace/OrderItemImage";
 import { SupplierAvatar } from "../components/marketplace/SupplierCard";
 import EmptyState from "../components/ui/EmptyState";
 import { useState } from "react";
+import { selectRefundAccount, useOrderRefundRequests, useRefundAccounts } from "../lib/refunds";
 
 export default function OrderDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const order = useCustomerOrderById(id, user?.email ?? "");
+  const supplierOrders = useSupplierOrders().filter((supplierOrder) => supplierOrder.orderId === id);
+  const { requests: refundRequests, error: refundsError } = useOrderRefundRequests(id);
+  const { accounts: refundAccounts } = useRefundAccounts(user?.id);
   const { add } = useCart();
   const { push } = useToast();
   const [confirmingDelivery, setConfirmingDelivery] = useState(false);
+  const [savingRefundId, setSavingRefundId] = useState<string | null>(null);
 
   if (!order) {
     return (
@@ -35,6 +40,7 @@ export default function OrderDetailsPage() {
   }
 
   const suppliers = [...new Set(order.lines.map((l) => l.supplierId))].map((sid) => getSupplierById(sid)).filter(Boolean);
+  const cancelledSupplierIds = new Set(supplierOrders.filter((supplierOrder) => supplierOrder.status === "cancelled").map((supplierOrder) => supplierOrder.supplierId));
 
   const reorder = () => {
     order.lines.forEach((l) => add(l.productId, l.quantity));
@@ -125,10 +131,80 @@ export default function OrderDetailsPage() {
                     <div className="xs muted">
                       {l.supplierName} · {l.quantity} × {mwk(l.price)}
                     </div>
+                    {cancelledSupplierIds.has(l.supplierId) && (
+                      <span className="badge badge-red" style={{ marginTop: 6 }}>Cancelled by store</span>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
+            {refundsError && <p className="small" role="alert" style={{ color: "var(--red, #b42318)", marginTop: 12 }}>{refundsError}</p>}
+            {refundRequests.length > 0 && (
+              <div className="stack-sm" style={{ marginTop: 16 }}>
+                {refundRequests.map((refund) => {
+                  const supplierOrder = supplierOrders.find((candidate) => candidate.id === refund.supplierOrderId);
+                  const supplier = getSupplierById(refund.supplierId);
+                  const selectedAccount = refundAccounts.find((account) => account.id === refund.refundAccountId);
+                  return (
+                    <div key={refund.id} className="card card-pad">
+                      <div className="between wrap" style={{ gap: 10 }}>
+                        <div>
+                          <b className="small">Refund · {supplier?.name ?? "Store"}</b>
+                          <p className="xs muted" style={{ marginTop: 3 }}>
+                            {supplierOrder?.lines.map((line) => line.name).join(", ") ?? "Cancelled store items"}
+                          </p>
+                        </div>
+                        <b>{mwk(refund.amount)}</b>
+                      </div>
+                      <p className="xs muted" style={{ marginTop: 8 }}>
+                        Refund is for cancelled item value only. Delivery and service fees are not included.
+                      </p>
+                      {refund.status === "awaiting_account" ? (
+                        <div className="stack-sm" style={{ marginTop: 10 }}>
+                          <label className="label" htmlFor={`refund-account-${refund.id}`}>Choose a refund account</label>
+                          {refundAccounts.length === 0 ? (
+                            <Link to="/account/refunds" className="btn btn-outline btn-sm">Add a refund account</Link>
+                          ) : (
+                            <select
+                              id={`refund-account-${refund.id}`}
+                              className="input"
+                              defaultValue=""
+                              disabled={savingRefundId === refund.id}
+                              onChange={async (event) => {
+                                const accountId = event.target.value;
+                                if (!accountId) return;
+                                setSavingRefundId(refund.id);
+                                const result = await selectRefundAccount(refund.id, accountId);
+                                setSavingRefundId(null);
+                                if (!result.ok) {
+                                  push({ title: "Could not select account", message: result.error ?? "The account could not be saved.", icon: "error" });
+                                  return;
+                                }
+                                push({ title: "Refund account selected", message: "MedLink can now process the item refund.", icon: "success" });
+                              }}
+                            >
+                              <option value="">Select saved account</option>
+                              {refundAccounts.map((account) => (
+                                <option key={account.id} value={account.id}>
+                                  {account.label} · {account.provider} · {account.accountNumber}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
+                          <span className={`badge ${refund.status === "refunded" ? "badge-green" : refund.status === "processing" ? "badge-amber" : "badge-navy"}`}>
+                            {refund.status === "pending" ? "Refund pending" : refund.status === "processing" ? "Refund processing" : "Refunded"}
+                          </span>
+                          {selectedAccount && <span className="xs muted">{selectedAccount.provider} · {selectedAccount.accountNumber}</span>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <div className="between" style={{ marginTop: 14 }}>
               <span className="muted small">Delivery fee (MedLink)</span>
               <b className="small">{mwk(order.deliveryFee)}</b>
@@ -165,17 +241,20 @@ export default function OrderDetailsPage() {
           <div className="card card-pad">
             <h2 className="h-card" style={{ marginBottom: 12 }}>Suppliers</h2>
             <div className="stack-sm">
-              {suppliers.map((s) =>
-                s ? (
+              {suppliers.map((s) => {
+                if (!s) return null;
+                const supplierOrder = supplierOrders.find((candidate) => candidate.supplierId === s.id);
+                return (
                   <Link to={`/suppliers/${s.slug}`} key={s.id} className="review-line">
                     <SupplierAvatar supplier={s} size={34} />
                     <div className="grow">
                       <b className="small">{s.name}</b>
                       <div className="xs muted">{s.location.city} · Verified{s.verified ? " ✓" : ""}</div>
                     </div>
+                    {supplierOrder && <SupplierOrderStatusBadge status={supplierOrder.status} />}
                   </Link>
-                ) : null,
-              )}
+                );
+              })}
             </div>
           </div>
 

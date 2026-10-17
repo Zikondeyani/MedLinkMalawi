@@ -7,12 +7,37 @@
    load failed it says so and offers a retry rather than letting a
    page render an empty catalogue as if the marketplace were empty.
    ============================================================ */
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Loader2, RefreshCw, WifiOff } from "lucide-react";
 import { loadMarketplace, useDataStatus } from "../../lib/registry";
+import { useAuth } from "../../lib/auth";
+import { supabase } from "../../lib/supabase";
 
 export default function DataGate({ children }: { children: ReactNode }) {
   const { loading, loaded, error } = useDataStatus();
+  const { user } = useAuth();
+  const userId = user?.id;
+
+  useEffect(() => {
+    const client = supabase;
+    if (!client || !userId) return;
+
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const refreshOrders = () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => void loadMarketplace(), 200);
+    };
+    const channel = client
+      .channel(`order-status:${userId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, refreshOrders)
+      .on("postgres_changes", { event: "*", schema: "public", table: "supplier_orders" }, refreshOrders)
+      .subscribe();
+
+    return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      void client.removeChannel(channel);
+    };
+  }, [userId]);
 
   // Spinner first: it also covers the one render before the auth provider has
   // kicked off its first load, so pages never flash an empty catalogue first.

@@ -720,6 +720,7 @@ export function supplierEscrow(supplierId: string, released?: Record<string, str
 
   const held = rows.filter((order) => {
     if (!order.orderId) return false;
+    if (order.status === "cancelled") return false;
     if (cancelledOrderIds.has(order.orderId)) return false;
     return !releasedSet.has(order.orderId);
   });

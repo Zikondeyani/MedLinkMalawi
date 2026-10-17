@@ -41,6 +41,9 @@ export interface AuthUser {
   status: AccountStatus;
   /** Cloudinary URL of the account's profile photo. */
   avatarUrl?: string;
+  phone?: string;
+  organization?: string;
+  about?: string;
   /** Server-derived supplier tenant for an approved supplier account. */
   supplierId?: string;
 }
@@ -120,10 +123,10 @@ export function nameFromEmail(email: string): string {
    Supabase profile mapping
    ============================================================ */
 
-const PROFILE_SELECT = "id, email, full_name, role, status, supplier_id, avatar_url";
+const PROFILE_SELECT = "id, email, full_name, phone, organization, about, role, status, supplier_id, avatar_url";
 
 /** Shape of the columns the app selects for its own session (see PROFILE_SELECT). */
-type SessionProfileRow = Omit<ProfileRow, "phone" | "updated_at" | "created_at" | "blocked">;
+type SessionProfileRow = Omit<ProfileRow, "updated_at" | "created_at" | "blocked">;
 
 function mapProfile(row: SessionProfileRow): AuthUser {
   const user: AuthUser = {
@@ -135,6 +138,9 @@ function mapProfile(row: SessionProfileRow): AuthUser {
   };
   if (row.supplier_id) user.supplierId = row.supplier_id;
   if (row.avatar_url) user.avatarUrl = row.avatar_url;
+  if (row.phone) user.phone = row.phone;
+  user.organization = row.organization;
+  user.about = row.about;
   return user;
 }
 
@@ -207,6 +213,10 @@ export interface LocalAccount {
   role: UserRole;
   status: AccountStatus;
   supplierId?: string;
+  phone?: string;
+  organization?: string;
+  about?: string;
+  avatarUrl?: string;
 }
 
 const SESSION_KEY = "medlink.auth.user";
@@ -232,7 +242,8 @@ function isLocalAccount(value: unknown): value is LocalAccount {
     typeof candidate.password === "string" &&
     (candidate.role === "customer" || candidate.role === "supplier" || candidate.role === "admin") &&
     (candidate.status === undefined || candidate.status === "active" || candidate.status === "suspended") &&
-    (candidate.supplierId === undefined || typeof candidate.supplierId === "string")
+    (candidate.supplierId === undefined || typeof candidate.supplierId === "string") &&
+    (candidate.avatarUrl === undefined || typeof candidate.avatarUrl === "string")
   );
 }
 
@@ -280,7 +291,7 @@ export function listLocalAccounts(): LocalAccount[] {
 /** Update an account's role/status in the demo backend (admin console). */
 export function updateLocalAccount(
   id: string,
-  patch: Partial<Pick<LocalAccount, "name" | "role" | "status" | "supplierId">>,
+  patch: Partial<Pick<LocalAccount, "name" | "role" | "status" | "supplierId" | "phone" | "organization" | "about" | "avatarUrl">>,
 ): LocalAccount | undefined {
   const accounts = readAccounts();
   const index = accounts.findIndex((account) => account.id === id);
@@ -300,6 +311,10 @@ function toAuthUser(account: LocalAccount): AuthUser {
     status: account.status,
   };
   if (account.supplierId) user.supplierId = account.supplierId;
+  if (account.phone) user.phone = account.phone;
+  user.organization = account.organization ?? "";
+  user.about = account.about ?? "";
+  if (account.avatarUrl) user.avatarUrl = account.avatarUrl;
   return user;
 }
 

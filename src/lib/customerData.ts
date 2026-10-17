@@ -361,6 +361,20 @@ export async function updateSupplierOrderStatus(
   return { ok: true };
 }
 
+/** Cancel one supplier's portion and let the database create its refund request. */
+export async function cancelSupplierOrder(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: "No backend configured." };
+  const { error } = await supabase.rpc("supplier_cancel_order", { p_supplier_order_id: id });
+  if (error) return { ok: false, error: error.message };
+  supplierOrders = supplierOrders.map((order) =>
+    order.id === id ? { ...order, status: "cancelled" } : order,
+  );
+  emit();
+  return { ok: true };
+}
+
 /* ------------------------------------------------------------
    Address book
    ------------------------------------------------------------ */

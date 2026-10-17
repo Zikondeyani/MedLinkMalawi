@@ -15,6 +15,7 @@ const supplierStatusMap: Record<SupplierOrderStatus, { label: string; tone: stri
   preparing: { label: "Preparing", tone: "badge-amber" },
   ready: { label: "Ready for Pickup", tone: "badge-navy" },
   completed: { label: "Completed", tone: "badge-green" },
+  cancelled: { label: "Cancelled", tone: "badge-red" },
 };
 
 export function CustomerOrderStatusBadge({ status }: { status: CustomerOrderStatus }) {

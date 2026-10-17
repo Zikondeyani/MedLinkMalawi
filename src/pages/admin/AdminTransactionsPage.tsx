@@ -31,7 +31,8 @@ import DataTable from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import Modal from "../../components/ui/Modal";
 import { SupplierAvatar } from "../../components/marketplace/SupplierCard";
-import type { PaymentTransaction } from "../../data/types";
+import type { PaymentTransaction, RefundRequest } from "../../data/types";
+import { useAdminRefundAccounts, useAdminRefundRequests, updateRefundRequestStatus } from "../../lib/refunds";
 
 type EscrowRow = {
   supplier: ReturnType<typeof useSuppliers>[number];
@@ -49,6 +50,10 @@ export default function AdminTransactionsPage() {
   const released = useReleasedOrders();
   const payouts = usePayouts();
   const payments = usePaymentTransactions();
+  const { requests: refundRequests, loading: refundsLoading, error: refundsError, reload: reloadRefundRequests } = useAdminRefundRequests();
+  const { accounts: refundAccounts, error: refundAccountsError } = useAdminRefundAccounts(
+    refundRequests.map((request) => request.refundAccountId).filter((id): id is string => Boolean(id)),
+  );
   const { push } = useToast();
   const [releaseTarget, setReleaseTarget] = useState<EscrowRow | null>(null);
   const [payFilter, setPayFilter] = useState<PayFilter>("all");
@@ -304,6 +309,113 @@ export default function AdminTransactionsPage() {
     },
   ];
 
+  const refundColumns: Column<RefundRequest>[] = [
+    {
+      key: "order",
+      header: "Order",
+      render: (refund) => (
+        <div>
+          <Link to={`/admin/orders/${refund.orderId}`} className="link small">{refund.orderNumber}</Link>
+          <div className="xs muted">{refund.supplierOrderId.slice(0, 8)}</div>
+        </div>
+      ),
+    },
+    {
+      key: "customer",
+      header: "Customer",
+      render: (refund) => (
+        <div>
+          <span className="small">{customerOrders.find((order) => order.id === refund.orderId)?.customerName ?? "Customer"}</span>
+          <div className="xs muted">{getSupplierById(refund.supplierId)?.name ?? refund.supplierId}</div>
+        </div>
+      ),
+    },
+    {
+      key: "amount",
+      header: "Refund amount",
+      align: "right",
+      render: (refund) => (
+        <div>
+          <b>{mwk(refund.amount)}</b>
+          <div className="xs muted">Cancelled item subtotal</div>
+        </div>
+      ),
+    },
+    {
+      key: "account",
+      header: "Refund account",
+      render: (refund) => {
+        const account = refund.refundAccountId ? refundAccounts[refund.refundAccountId] : undefined;
+        return account ? (
+          <div>
+            <b className="small">{account.provider}</b>
+            <div className="xs muted">{account.accountName} · {account.accountNumber}</div>
+          </div>
+        ) : <span className="xs muted">Awaiting customer account</span>;
+      },
+    },
+    {
+      key: "status",
+      header: "Status / action",
+      render: (refund) => (
+        <div className="row wrap" style={{ gap: 6 }}>
+          <span className={`badge ${refund.status === "refunded" ? "badge-green" : refund.status === "awaiting_account" ? "badge-amber" : "badge-navy"}`}>
+            {refund.status.replace("_", " ")}
+          </span>
+          {refund.status === "pending" && (
+            <>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={async () => {
+                  const result = await updateRefundRequestStatus(refund.id, "processing");
+                  if (!result.ok) {
+                    push({ title: "Refund not updated", message: result.error ?? "Could not update refund.", icon: "error" });
+                    return;
+                  }
+                  await reloadRefundRequests();
+                }}
+              >
+                Mark processing
+              </button>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={async () => {
+                  if (!window.confirm(`Confirm that ${mwk(refund.amount)} was sent to the customer's refund account?`)) return;
+                  const result = await updateRefundRequestStatus(refund.id, "refunded");
+                  if (!result.ok) {
+                    push({ title: "Refund not updated", message: result.error ?? "Could not update refund.", icon: "error" });
+                    return;
+                  }
+                  await reloadRefundRequests();
+                  push({ title: "Refund marked paid", message: "The customer was notified. Confirm that funds were sent before using this action.", icon: "success" });
+                }}
+              >
+                Mark refunded
+              </button>
+            </>
+          )}
+          {refund.status === "processing" && (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={async () => {
+                if (!window.confirm(`Confirm that ${mwk(refund.amount)} was sent to the customer's refund account?`)) return;
+                const result = await updateRefundRequestStatus(refund.id, "refunded");
+                if (!result.ok) {
+                  push({ title: "Refund not updated", message: result.error ?? "Could not update refund.", icon: "error" });
+                  return;
+                }
+                await reloadRefundRequests();
+                push({ title: "Refund marked paid", message: "The customer was notified. Confirm that funds were sent before using this action.", icon: "success" });
+              }}
+            >
+              Mark refunded
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   const payChips: { key: PayFilter; label: string }[] = [
     { key: "all", label: `All (${payments.length})` },
     { key: "succeeded", label: `Succeeded (${succeededCount})` },
@@ -388,6 +500,34 @@ export default function AdminTransactionsPage() {
           minWidth={800}
           empty="No buyer payments recorded yet."
         />
+        )}
+      </div>
+
+      <div className="card card-pad">
+        <div className="section-head" style={{ marginBottom: 12 }}>
+          <div>
+            <span className="eyebrow">Customer refunds</span>
+            <h3 className="h-card">Cancelled supplier items</h3>
+            <p className="xs muted" style={{ marginTop: 4 }}>
+              Refunds cover item subtotal only; delivery and service fees are excluded. Confirm payment before marking as refunded.
+            </p>
+          </div>
+          <span className="xs muted">{refundRequests.length} requests</span>
+        </div>
+        {(refundsError || refundAccountsError) && (
+          <p className="small" role="alert" style={{ color: "var(--red, #b42318)", marginBottom: 10 }}>
+            {refundsError ?? refundAccountsError}
+          </p>
+        )}
+        {refundsLoading ? (
+          <p className="small muted">Loading refund requests...</p>
+        ) : (
+          <DataTable
+            columns={refundColumns}
+            rows={refundRequests}
+            minWidth={980}
+            empty="No cancelled supplier items need refunds."
+          />
         )}
       </div>
 

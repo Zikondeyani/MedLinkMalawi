@@ -9,14 +9,12 @@ import type { Column } from "../../components/ui/DataTable";
 import { CustomerOrderStatusBadge } from "../../components/marketplace/OrderStatus";
 import type { CustomerOrderStatus } from "../../data/types";
 
-const statusOptions: CustomerOrderStatus[] = [
-  "confirmed",
-  "preparing",
-  "ready",
-  "out_for_delivery",
-  "delivered",
-  "cancelled",
-];
+function availableStatuses(status: CustomerOrderStatus): CustomerOrderStatus[] {
+  if (status === "confirmed" || status === "preparing") return [status, "cancelled"];
+  if (status === "ready") return [status, "out_for_delivery", "cancelled"];
+  if (status === "out_for_delivery") return [status, "delivered", "cancelled"];
+  return [status];
+}
 
 export default function AdminOrdersPage() {
   const customerOrders = useOrders();
@@ -97,7 +95,7 @@ export default function AdminOrdersPage() {
             aria-label={`Change status for ${o.number}`}
             onChange={(e) => void changeStatus(o.id, o.number, e.target.value as CustomerOrderStatus)}
           >
-            {statusOptions.map((s) => (
+            {availableStatuses(o.status).map((s) => (
               <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
             ))}
           </select>

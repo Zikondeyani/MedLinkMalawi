@@ -223,7 +223,32 @@ export interface Order {
 
 /* ---- Supplier side ---- */
 
-export type SupplierOrderStatus = "new" | "confirmed" | "preparing" | "ready" | "completed";
+export type SupplierOrderStatus = "new" | "confirmed" | "preparing" | "ready" | "completed" | "cancelled";
+
+export interface RefundAccount {
+  id: string;
+  label: string;
+  method: "mobile_money" | "bank_account";
+  provider: string;
+  accountName: string;
+  accountNumber: string;
+}
+
+export interface RefundRequest {
+  id: string;
+  orderId: string;
+  supplierOrderId: string;
+  supplierId: string;
+  customerId: string;
+  orderNumber: string;
+  amount: number;
+  status: "awaiting_account" | "pending" | "processing" | "refunded";
+  refundAccountId: string | null;
+  adminNote: string;
+  createdAt: string;
+  updatedAt: string;
+  processedAt: string | null;
+}
 
 export interface SupplierOrderLine {
   productId: string;

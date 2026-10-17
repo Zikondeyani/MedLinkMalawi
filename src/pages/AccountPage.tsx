@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Bell,
@@ -6,10 +6,12 @@ import {
   Heart,
   Info,
   LogOut,
+  Loader2,
   MapPin,
   Package,
   Plus,
   Settings,
+  Save,
   Trash2,
   Truck,
   User,
@@ -18,7 +20,7 @@ import {
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useCustomerAddresses, saveCustomerAddress } from "../lib/customerData";
 import { useActiveProducts } from "../lib/registry";
-import { roleLabel, useAuth } from "../lib/auth";
+import { roleLabel, updateLocalAccount, useAuth } from "../lib/auth";
 import { useWishlist } from "../lib/wishlist";
 import { useNotifications } from "../lib/notifications";
 import EmptyState from "../components/ui/EmptyState";
@@ -28,10 +30,11 @@ import { describeOwnerFolder, useUploadOwner } from "../lib/cloudinary";
 import { supabase } from "../lib/supabase";
 import { useToast } from "../lib/toast";
 import { prettyDateTime } from "../lib/format";
-import type { DeliveryAddress, NotificationItem } from "../data/types";
+import type { DeliveryAddress, NotificationItem, RefundAccount } from "../data/types";
 import Modal from "../components/ui/Modal";
+import { deleteRefundAccount, saveRefundAccount, useRefundAccounts } from "../lib/refunds";
 
-type SectionId = "saved" | "addresses" | "profile" | "settings" | "notifications";
+type SectionId = "saved" | "addresses" | "refunds" | "profile" | "settings" | "notifications";
 
 interface SectionDef {
   id: SectionId;
@@ -47,6 +50,7 @@ interface SectionDef {
 const SECTIONS: SectionDef[] = [
   { id: "saved", label: "Saved Products", desc: "Products you've saved for later", icon: Heart },
   { id: "addresses", label: "Addresses", desc: "Delivery addresses used at checkout", icon: MapPin },
+  { id: "refunds", label: "Refund Accounts", desc: "Where MedLink can send refunds for cancelled items", icon: Wallet },
   { id: "profile", label: "Profile", desc: "Your name, contact details and organisation", icon: User },
   { id: "settings", label: "Settings", desc: "Email, SMS and alert preferences", icon: Settings },
   { id: "notifications", label: "Notifications", desc: "Alerts about orders, delivery and payments", icon: Bell },
@@ -63,12 +67,20 @@ export default function AccountPage() {
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
   const { user, signOut, refresh } = useAuth();
-  const { ids } = useWishlist();
-  const { items, markRead, markAllRead } = useNotifications();
+  const { ids, loading: wishlistLoading } = useWishlist();
+  const { items, markRead, markAllRead, deleteNotification, clearAll, loading: notificationsLoading, markingId, markingAll, deletingId, clearing } = useNotifications();
   const { push } = useToast();
   // Every file this account uploads is written to this owner's folder.
   const owner = useUploadOwner();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl ?? null);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileDraft, setProfileDraft] = useState({
+    name: user?.name ?? "",
+    phone: user?.phone ?? "",
+    organization: user?.organization ?? "",
+    about: user?.about ?? "",
+  });
   const [addressFormOpen, setAddressFormOpen] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const [newAddress, setNewAddress] = useState<DeliveryAddress>({
@@ -83,11 +95,32 @@ export default function AccountPage() {
 
   const activeProducts = useActiveProducts();
   const savedAddresses = useCustomerAddresses(user?.email ?? "");
+  const { accounts: refundAccounts, loading: refundsLoading, error: refundsError, reload: reloadRefundAccounts } = useRefundAccounts(user?.id);
+  const [refundFormOpen, setRefundFormOpen] = useState(false);
+  const [savingRefundAccount, setSavingRefundAccount] = useState(false);
+  const [refundAccountDraft, setRefundAccountDraft] = useState<Omit<RefundAccount, "id">>({
+    label: "",
+    method: "mobile_money",
+    provider: "",
+    accountName: "",
+    accountNumber: "",
+  });
   const active = SECTIONS.find((s) => s.id === tab);
   const savedProducts = useMemo(
     () => ids.map((id) => activeProducts.find((p) => p.id === id)).filter((p): p is NonNullable<typeof p> => Boolean(p)),
     [ids, activeProducts],
   );
+
+  useEffect(() => {
+    if (!user) return;
+    setProfileDraft({
+      name: user.name,
+      phone: user.phone ?? "",
+      organization: user.organization ?? "",
+      about: user.about ?? "",
+    });
+    setAvatarUrl(user.avatarUrl ?? null);
+  }, [user]);
 
   // The route is guarded in App, but keep this page safe if it is rendered
   // directly in the future. Customer profile data must never be used as a
@@ -118,7 +151,11 @@ export default function AccountPage() {
         </div>
 
         {active.id === "saved" &&
-          (savedProducts.length === 0 ? (
+          (wishlistLoading ? (
+            <div className="card card-pad row" role="status" style={{ justifyContent: "center", gap: 10 }}>
+              <Loader2 size={18} className="spin" /> Loading saved products...
+            </div>
+          ) : savedProducts.length === 0 ? (
             <EmptyState
               icon="box"
               title="No saved products"
@@ -170,6 +207,129 @@ export default function AccountPage() {
               <b className="small">Add a new address</b>
               <span className="xs muted">Clinic, hospital, home...</span>
             </button>
+          </div>
+        )}
+        {active.id === "refunds" && (
+          <div className="stack">
+            <div className="card card-pad">
+              <div className="between wrap" style={{ gap: 12 }}>
+                <div>
+                  <h2 className="h-card">Saved refund accounts</h2>
+                  <p className="xs muted" style={{ marginTop: 5 }}>
+                    MedLink uses these details only when a supplier cancels items and you request a refund.
+                  </p>
+                </div>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => {
+                    setRefundAccountDraft({ label: "", method: "mobile_money", provider: "", accountName: user.name, accountNumber: "" });
+                    setRefundFormOpen(true);
+                  }}
+                >
+                  <Plus size={14} /> Add account
+                </button>
+              </div>
+              {refundsError && <p className="small" role="alert" style={{ color: "var(--red, #b42318)", marginTop: 12 }}>{refundsError}</p>}
+              {refundsLoading ? (
+                <p className="small muted row" role="status" style={{ marginTop: 18, gap: 8 }}><Loader2 size={16} className="spin" /> Loading refund accounts...</p>
+              ) : refundAccounts.length === 0 ? (
+                <p className="small muted" style={{ marginTop: 18 }}>No refund accounts saved yet. Add a Mobile Money or bank account to receive refunds.</p>
+              ) : (
+                <div className="grid grid-2" style={{ marginTop: 16 }}>
+                  {refundAccounts.map((account) => (
+                    <div className="card card-pad" key={account.id}>
+                      <div className="between" style={{ gap: 10 }}>
+                        <span className="badge badge-soft">{account.label}</span>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          aria-label={`Remove ${account.label}`}
+                          onClick={async () => {
+                            const result = await deleteRefundAccount(account.id);
+                            if (!result.ok) {
+                              push({ title: "Could not remove account", message: result.error ?? "The account could not be removed.", icon: "error" });
+                              return;
+                            }
+                            await reloadRefundAccounts();
+                            push({ title: "Refund account removed", message: "The saved account was removed.", icon: "success" });
+                          }}
+                        >
+                          <Trash2 size={14} /> Remove
+                        </button>
+                      </div>
+                      <b className="small" style={{ display: "block", marginTop: 12 }}>{account.provider}</b>
+                      <p className="small muted">{account.accountName}</p>
+                      <p className="small">{account.accountNumber}</p>
+                      <span className="xs muted">{account.method === "mobile_money" ? "Mobile Money" : "Bank account"}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Modal
+              open={refundFormOpen}
+              onClose={() => setRefundFormOpen(false)}
+              title="Add refund account"
+              footer={
+                <>
+                  <button className="btn btn-ghost" onClick={() => setRefundFormOpen(false)} disabled={savingRefundAccount}>Cancel</button>
+                  <button className="btn btn-primary" type="submit" form="refund-account-form" disabled={savingRefundAccount}>
+                    {savingRefundAccount ? "Saving..." : "Save account"}
+                  </button>
+                </>
+              }
+            >
+              <form
+                id="refund-account-form"
+                className="form-grid"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  if (savingRefundAccount) return;
+                  setSavingRefundAccount(true);
+                  const result = await saveRefundAccount(user.id, refundAccountDraft);
+                  setSavingRefundAccount(false);
+                  if (!result.ok) {
+                    push({ title: "Could not save account", message: result.error ?? "The account could not be saved.", icon: "error" });
+                    return;
+                  }
+                  setRefundFormOpen(false);
+                  await reloadRefundAccounts();
+                  push({ title: "Refund account saved", message: "You can select it when requesting an order refund.", icon: "success" });
+                }}
+              >
+                <div className="field full">
+                  <label className="label" htmlFor="refund-label">Account label</label>
+                  <input id="refund-label" className="input" required value={refundAccountDraft.label} onChange={(event) => setRefundAccountDraft({ ...refundAccountDraft, label: event.target.value })} placeholder="e.g. Personal Airtel Money" />
+                </div>
+                <div className="field full">
+                  <label className="label" htmlFor="refund-method">Account type</label>
+                  <select id="refund-method" className="input" value={refundAccountDraft.method} onChange={(event) => setRefundAccountDraft({ ...refundAccountDraft, method: event.target.value as RefundAccount["method"], provider: "" })}>
+                    <option value="mobile_money">Mobile Money</option>
+                    <option value="bank_account">Bank account</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label className="label" htmlFor="refund-provider">{refundAccountDraft.method === "mobile_money" ? "Mobile Money provider" : "Bank name"}</label>
+                  {refundAccountDraft.method === "mobile_money" ? (
+                    <select id="refund-provider" className="input" required value={refundAccountDraft.provider} onChange={(event) => setRefundAccountDraft({ ...refundAccountDraft, provider: event.target.value })}>
+                      <option value="">Select provider</option>
+                      <option value="Airtel Money">Airtel Money</option>
+                      <option value="TNM Mpamba">TNM Mpamba</option>
+                      <option value="Other Mobile Money">Other</option>
+                    </select>
+                  ) : (
+                    <input id="refund-provider" className="input" required value={refundAccountDraft.provider} onChange={(event) => setRefundAccountDraft({ ...refundAccountDraft, provider: event.target.value })} placeholder="Bank name" />
+                  )}
+                </div>
+                <div className="field">
+                  <label className="label" htmlFor="refund-account-name">Account holder name</label>
+                  <input id="refund-account-name" className="input" required value={refundAccountDraft.accountName} onChange={(event) => setRefundAccountDraft({ ...refundAccountDraft, accountName: event.target.value })} />
+                </div>
+                <div className="field full">
+                  <label className="label" htmlFor="refund-account-number">{refundAccountDraft.method === "mobile_money" ? "Mobile Money number" : "Account number"}</label>
+                  <input id="refund-account-number" className="input" required value={refundAccountDraft.accountNumber} onChange={(event) => setRefundAccountDraft({ ...refundAccountDraft, accountNumber: event.target.value })} />
+                </div>
+              </form>
+            </Modal>
           </div>
         )}
         {active.id === "addresses" && (
@@ -299,6 +459,7 @@ export default function AccountPage() {
         {active.id === "profile" && (
           <div className="card card-pad">
             <h2 className="h-card" style={{ marginBottom: 16 }}>Profile</h2>
+            {avatarSaving && <p className="xs muted row" role="status" style={{ gap: 7, marginBottom: 10 }}><Loader2 size={14} className="spin" /> Saving profile photo...</p>}
             <FileUploader
               purpose="profile"
               owner={owner}
@@ -310,44 +471,100 @@ export default function AccountPage() {
               maxBytes={5 * 1_048_576}
               onUploaded={async (file) => {
                 const next = file.url;
-                setAvatarUrl(next);
                 if (!supabase) {
-                  push({ title: "Profile photo", message: "Saved for this session only — no backend configured.", icon: "info" });
+                  const updated = updateLocalAccount(user.id, { avatarUrl: next });
+                  if (!updated) {
+                    push({ title: "Could not save the photo", message: "Could not find the local account to update.", icon: "error" });
+                    return;
+                  }
+                  setAvatarUrl(next);
+                  await refresh();
+                  push({ title: "Profile photo updated", message: "Your profile photo has been saved locally.", icon: "success" });
                   return;
                 }
-                // Only the URL is stored; the bytes live in the owner's Cloudinary folder.
-                const { error } = await supabase.from("profiles").update({ avatar_url: next }).eq("id", user.id);
-                if (error) {
-                  push({ title: "Could not save the photo", message: error.message, icon: "error" });
-                  return;
+                setAvatarSaving(true);
+                try {
+                  const { data, error } = await supabase.from("profiles").update({ avatar_url: next }).eq("id", user.id).select("id").maybeSingle();
+                  if (error) throw error;
+                  if (!data) throw new Error("Profile was not found or the photo could not be saved.");
+                  setAvatarUrl(next);
+                  await refresh();
+                  push({ title: "Profile photo updated", message: "Your profile photo has been saved.", icon: "success" });
+                } catch (error) {
+                  push({ title: "Could not save the photo", message: error instanceof Error ? error.message : String(error), icon: "error" });
+                } finally {
+                  setAvatarSaving(false);
                 }
-                await refresh();
-                push({ title: "Profile photo updated", message: `Stored in ${file.folder}`, icon: "success" });
               }}
             />
-            <div className="form-grid" style={{ marginTop: 20 }}>
+            <form
+              className="form-grid"
+              style={{ marginTop: 20 }}
+              onSubmit={async (event) => {
+                event.preventDefault();
+                if (profileSaving) return;
+                setProfileSaving(true);
+                try {
+                  if (supabase) {
+                    const { data, error } = await supabase
+                      .from("profiles")
+                      .update({
+                        full_name: profileDraft.name.trim(),
+                        phone: profileDraft.phone.trim() || null,
+                        organization: profileDraft.organization.trim(),
+                        about: profileDraft.about.trim(),
+                      })
+                      .eq("id", user.id)
+                      .select("id")
+                      .maybeSingle();
+                    if (error) throw error;
+                    if (!data) throw new Error("Profile was not found or you do not have permission to update it.");
+                    await refresh();
+                  } else {
+                    const updated = updateLocalAccount(user.id, {
+                      name: profileDraft.name.trim(),
+                      phone: profileDraft.phone.trim(),
+                      organization: profileDraft.organization.trim(),
+                      about: profileDraft.about.trim(),
+                    });
+                    if (!updated) throw new Error("Could not find the local account to update.");
+                    await refresh();
+                  }
+                  push({ title: "Profile saved", message: "Your account details have been updated.", icon: "success" });
+                } catch (error) {
+                  push({ title: "Could not save profile", message: error instanceof Error ? error.message : String(error), icon: "error" });
+                } finally {
+                  setProfileSaving(false);
+                }
+              }}
+            >
               <div className="field">
                 <label className="label" htmlFor="pname">Full name</label>
-                <input id="pname" className="input" defaultValue={user.name} />
+                <input id="pname" className="input" required value={profileDraft.name} onChange={(event) => setProfileDraft({ ...profileDraft, name: event.target.value })} />
               </div>
               <div className="field">
                 <label className="label" htmlFor="pemail">Email</label>
-                <input id="pemail" className="input" defaultValue={user.email} />
+                <input id="pemail" className="input" value={user.email} readOnly />
               </div>
               <div className="field">
                 <label className="label" htmlFor="pphone">Phone</label>
-                <input id="pphone" className="input" placeholder="Add your phone number" />
+                <input id="pphone" className="input" value={profileDraft.phone} onChange={(event) => setProfileDraft({ ...profileDraft, phone: event.target.value })} placeholder="Add your phone number" />
               </div>
               <div className="field">
                 <label className="label" htmlFor="porg">Organisation</label>
-                <input id="porg" className="input" placeholder="Add your organisation" />
+                <input id="porg" className="input" value={profileDraft.organization} onChange={(event) => setProfileDraft({ ...profileDraft, organization: event.target.value })} placeholder="Add your organisation" />
               </div>
               <div className="field full">
                 <label className="label" htmlFor="pabout">About</label>
-                <textarea id="pabout" className="textarea" placeholder="Tell suppliers about your facility or purchasing needs" />
+                <textarea id="pabout" className="textarea" value={profileDraft.about} onChange={(event) => setProfileDraft({ ...profileDraft, about: event.target.value })} placeholder="Tell suppliers about your facility or purchasing needs" />
               </div>
-            </div>
-            <button className="btn btn-primary" style={{ marginTop: 16 }}>Save changes</button>
+              <div className="field full">
+                <button className="btn btn-primary" type="submit" style={{ marginTop: 4 }} disabled={profileSaving}>
+                  {profileSaving ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
+                  {profileSaving ? "Saving..." : "Save changes"}
+                </button>
+              </div>
+            </form>
           </div>
         )}
 
@@ -380,11 +597,26 @@ export default function AccountPage() {
           <div className="card card-pad">
             <div className="between" style={{ marginBottom: 14 }}>
               <h2 className="h-card">{unreadCount > 0 ? `${unreadCount} unread` : "All caught up"}</h2>
-              {unreadCount > 0 && (
-                <button className="btn btn-ghost btn-sm" onClick={markAllRead}>Mark all read</button>
-              )}
+              <div className="row wrap" style={{ gap: 6 }}>
+                {unreadCount > 0 && (
+                  <button className="btn btn-ghost btn-sm" disabled={markingAll || !!markingId || clearing} onClick={() => void markAllRead()}>
+                    {markingAll && <Loader2 size={14} className="spin" />}
+                    {markingAll ? "Marking..." : "Mark all read"}
+                  </button>
+                )}
+                {items.length > 0 && (
+                  <button className="btn btn-outline btn-sm" disabled={clearing || !!deletingId} onClick={() => {
+                    if (window.confirm("Delete all notifications in your list? This cannot be undone.")) void clearAll();
+                  }}>
+                    {clearing ? <Loader2 size={14} className="spin" /> : <Trash2 size={14} />}
+                    {clearing ? "Clearing..." : "Clear all"}
+                  </button>
+                )}
+              </div>
             </div>
-            {items.length === 0 ? (
+            {notificationsLoading ? (
+              <div className="row muted small" role="status" style={{ justifyContent: "center", gap: 8, padding: 18 }}><Loader2 size={17} className="spin" /> Loading notifications...</div>
+            ) : items.length === 0 ? (
               <EmptyState
                 icon="box"
                 title="No notifications"
@@ -395,17 +627,22 @@ export default function AccountPage() {
                 {items.map((n) => {
                   const Icon = NOTIF_ICONS[n.icon];
                   return (
-                    <button key={n.id} className={`notification-card${n.read ? "" : " unread"}`} onClick={() => markRead(n.id)}>
-                      <span className={`notif-icon notif-${n.icon}`}><Icon size={17} /></span>
-                      <span className="grow">
-                        <span className="between">
-                          <b className="small">{n.title}</b>
-                          <span className="xs muted">{prettyDateTime(n.time)}</span>
+                    <div key={n.id} className="notification-row">
+                      <button className={`notification-card${n.read ? "" : " unread"}`} disabled={deletingId === n.id || markingId === n.id || clearing} onClick={() => void markRead(n.id)}>
+                        <span className={`notif-icon notif-${n.icon}`}><Icon size={17} /></span>
+                        <span className="grow">
+                          <span className="between">
+                            <b className="small">{n.title}</b>
+                            <span className="xs muted">{prettyDateTime(n.time)}</span>
+                          </span>
+                          <span className="xs muted">{n.message}</span>
                         </span>
-                        <span className="xs muted">{n.message}</span>
-                      </span>
-                      {!n.read && <span className="notif-dot" />}
-                    </button>
+                        {markingId === n.id ? <Loader2 size={14} className="spin muted" /> : !n.read && <span className="notif-dot" />}
+                      </button>
+                      <button className="btn btn-ghost btn-icon notification-delete" aria-label={`Delete notification: ${n.title}`} title="Delete notification" disabled={clearing || !!markingId || markingAll || deletingId === n.id} onClick={() => void deleteNotification(n.id)}>
+                        {deletingId === n.id ? <Loader2 size={15} className="spin" /> : <Trash2 size={15} />}
+                      </button>
+                    </div>
                   );
                 })}
               </div>

@@ -45,7 +45,7 @@ export type AccountMutationResult =
 const PROFILE_SELECT = "id, email, full_name, role, status, supplier_id, avatar_url, blocked, created_at";
 
 /** Shape of the columns the admin console selects (see PROFILE_SELECT). */
-type AdminProfileRow = Omit<ProfileRow, "phone" | "updated_at">;
+type AdminProfileRow = Omit<ProfileRow, "phone" | "organization" | "about" | "updated_at">;
 
 function mapRow(row: AdminProfileRow): AccountRecord {
   const account: AccountRecord = {
