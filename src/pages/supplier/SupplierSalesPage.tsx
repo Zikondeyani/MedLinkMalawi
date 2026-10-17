@@ -35,9 +35,9 @@ export default function SupplierSalesPage() {
       </div>
 
       <div className="grid grid-4 dash-grid">
-        <DashboardCard icon={<Wallet size={19} />} label="Total revenue" value={mwkCompact(total)} sub="Last 12 months" tone="teal" />
+        <DashboardCard icon={<Wallet size={19} />} label="Total revenue" value={mwk(total)} sub="Last 12 months" tone="teal" />
         <DashboardCard icon={<ShoppingBag size={19} />} label="Total orders" value={String(orders)} sub="Last 12 months" tone="navy" />
-        <DashboardCard icon={<TrendingUp size={19} />} label="Avg. order value" value={mwkCompact(avg)} sub="Per order" tone="green" />
+        <DashboardCard icon={<TrendingUp size={19} />} label="Avg. order value" value={mwk(avg)} sub="Per order" tone="green" />
         <DashboardCard icon={<Percent size={19} />} label="Fulfilment" value={`${stats.fulfilment}%`} sub="Orders completed" tone="amber" />
       </div>
 

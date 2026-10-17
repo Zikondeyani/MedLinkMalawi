@@ -12,17 +12,26 @@ export function mwkCompact(n: number): string {
 
 export function prettyDate(iso: string): string {
   const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "—";
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
 export function shortDate(iso: string): string {
   const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "—";
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
 }
 
 export function timeOnly(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  if (!Number.isFinite(d.getTime())) return "—";
+  return d.toLocaleTimeString("en-GB", { hour: "numeric", minute: "2-digit", hourCycle: "h12" });
+}
+
+export function prettyDateTime(iso: string): string {
+  const date = prettyDate(iso);
+  const time = timeOnly(iso);
+  return date === "—" || time === "—" ? "—" : `${date} at ${time}`;
 }
 
 export function daysAgoLabel(iso: string): string {

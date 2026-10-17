@@ -1,22 +1,20 @@
-import { BadgeCheck, Camera, ExternalLink, FileText, Globe, Loader2, MapPin, Phone } from "lucide-react";
+import { BadgeCheck, ExternalLink, FileText, Globe, Loader2, MapPin, Phone } from "lucide-react";
 import { useState } from "react";
 import {
   getSupplierById,
   updateMySupplier,
   useCurrentSupplierId,
   useOwnApplication,
-  usePricing,
 } from "../../lib/registry";
 import { useToast } from "../../lib/toast";
 import { SupplierAvatar } from "../../components/marketplace/SupplierCard";
 import FileUploader from "../../components/ui/FileUploader";
-import { describeOwnerFolder, useUploadOwner } from "../../lib/cloudinary";
+import { useUploadOwner } from "../../lib/cloudinary";
 
 export default function SupplierStorePage() {
   const supplierId = useCurrentSupplierId();
   const supplier = supplierId ? getSupplierById(supplierId) : undefined;
   const application = useOwnApplication();
-  const pricing = usePricing();
   const { push } = useToast();
   // Store artwork is written to this store's own folder, never a shared one.
   const owner = useUploadOwner();
@@ -31,8 +29,6 @@ export default function SupplierStorePage() {
     email: supplier?.email ?? "",
     city: supplier?.location.city ?? "Lilongwe",
     area: supplier?.location.area ?? "",
-    deliveryFee: String(supplier?.delivery.fee ?? 0),
-    estimate: supplier?.delivery.estimate ?? "",
   });
 
   if (!supplier) return null;
@@ -57,13 +53,8 @@ export default function SupplierStorePage() {
   }
 
   async function save() {
-    const fee = Number(form.deliveryFee);
     if (!form.name.trim()) {
       push({ title: "Store name needed", message: "A store needs a name customers can search for.", icon: "error" });
-      return;
-    }
-    if (!Number.isFinite(fee) || fee < 0) {
-      push({ title: "Check the delivery fee", message: "Enter a delivery fee of 0 or more.", icon: "error" });
       return;
     }
 
@@ -75,8 +66,6 @@ export default function SupplierStorePage() {
       email: form.email,
       city: form.city,
       area: form.area,
-      deliveryFee: Math.round(fee),
-      deliveryEstimate: form.estimate,
     });
     setSaving(false);
 
@@ -100,70 +89,68 @@ export default function SupplierStorePage() {
         )}
       </div>
 
-      {/* Banner + logo — both upload into this store's folder */}
-      <div className="store-preview">
-        <div
-          className="store-preview-banner"
-          style={
-            banner
-              ? {
-                  backgroundImage: `url(${banner})`,
-                  backgroundSize: "contain",
-                  backgroundPosition: "center",
-                  backgroundRepeat: "no-repeat",
-                  backgroundColor: supplier.bannerGradient[0],
-                }
-              : { background: `linear-gradient(120deg, ${supplier.bannerGradient[0]}, ${supplier.bannerGradient[1]})` }
-          }
-        >
-          {!banner && <div className="bg-grid-pattern" />}
-          <div className="store-preview-actions">
-            <span className="btn btn-outline btn-sm">
-              <Camera size={14} />
-              <FileUploader
-                purpose="store-banner"
-                owner={owner}
-                accept="image/png,image/jpeg,image/webp"
-                label="Store banner"
-                value={banner}
-                maxBytes={5 * 1_048_576}
-                onUploaded={(file) => {
-                  setBannerUrl(file.url);
-                  void saveStoreImage("banner_image", file.url, file.folder);
-                }}
-              />
-            </span>
-          </div>
+      <div className="card card-pad stack">
+        <div>
+          <h3 className="h-card">Store branding</h3>
+          <p className="small muted">Preview your public store header and update its display picture and banner.</p>
         </div>
-        <div className="store-preview-head">
-          {logo ? (
-            <img src={logo} alt="" style={{ width: 68, height: 68, borderRadius: "50%", objectFit: "contain", background: "#fff" }} />
-          ) : (
-            <SupplierAvatar supplier={supplier} size={68} />
-          )}
-          <div className="grow">
-            <h2 className="h-card">{supplier.name}</h2>
-            {supplier.verified && (
-              <span className="badge badge-green" style={{ marginTop: 2 }}><BadgeCheck size={11} /> Verified Supplier</span>
-            )}
-          </div>
-          <FileUploader
-            purpose="store-logo"
-            owner={owner}
-            accept="image/png,image/jpeg,image/webp"
-            label="Change logo"
-            value={logo}
-            maxBytes={5 * 1_048_576}
-            onUploaded={(file) => {
-              setLogoUrl(file.url);
-              void saveStoreImage("logo_image", file.url, file.folder);
+        <div className="store-branding-preview">
+          <div
+            className="store-branding-cover"
+            style={{
+              background: banner
+                ? `url(${banner}) center / cover no-repeat`
+                : `linear-gradient(120deg, ${supplier.bannerGradient[0]}, ${supplier.bannerGradient[1]})`,
             }}
-          />
+          >
+            {!banner && <div className="bg-grid-pattern" />}
+          </div>
+          <div className="store-branding-profile">
+            <SupplierAvatar supplier={{ ...supplier, name: form.name || supplier.name, logoImage: logo ?? undefined }} size={82} />
+            <div className="store-branding-identity">
+              <div className="row wrap" style={{ gap: 8 }}>
+                <h4 className="h-card">{form.name || supplier.name}</h4>
+                {supplier.verified && <span className="badge badge-green"><BadgeCheck size={12} /> Verified</span>}
+              </div>
+              <span className="small muted">{supplier.category} · {supplier.location.city}</span>
+            </div>
+          </div>
         </div>
-        <p className="xs muted" style={{ padding: "0 16px 14px" }}>
-          Banner goes to <code>{describeOwnerFolder(owner, "store-banner")}</code>, logo to{" "}
-          <code>{describeOwnerFolder(owner, "store-logo")}</code>.
-        </p>
+        <div className="form-grid">
+          <div className="field full">
+            <FileUploader
+              purpose="store-logo"
+              owner={owner}
+              accept="image/png,image/jpeg,image/webp"
+              label="Store display picture"
+              hint="Replaces the initials on supplier cards and appears beside your store name."
+              value={logo}
+              round
+              showPreview={false}
+              maxBytes={5 * 1_048_576}
+              onUploaded={(file) => {
+                setLogoUrl(file.url);
+                void saveStoreImage("logo_image", file.url, file.folder);
+              }}
+            />
+          </div>
+          <div className="field full">
+            <FileUploader
+              purpose="store-banner"
+              owner={owner}
+              accept="image/png,image/jpeg,image/webp"
+              label="Store banner"
+              hint="Shown behind your display picture on your public store page."
+              value={banner}
+              showPreview={false}
+              maxBytes={5 * 1_048_576}
+              onUploaded={(file) => {
+                setBannerUrl(file.url);
+                void saveStoreImage("banner_image", file.url, file.folder);
+              }}
+            />
+          </div>
+        </div>
       </div>
 
       <div className="card card-pad">
@@ -229,25 +216,6 @@ export default function SupplierStorePage() {
             No KYC application is linked to this account, so there are no registration details to show.
           </p>
         )}
-      </div>
-
-      <div className="card card-pad">
-        <h3 className="h-card" style={{ marginBottom: 16 }}>Delivery information</h3>
-        <div className="form-grid">
-          <div className="field">
-            <label className="label" htmlFor="dfee">Delivery fee (MWK)</label>
-            <input id="dfee" className="input" type="number" min={0} value={form.deliveryFee} onChange={(e) => setForm({ ...form, deliveryFee: e.target.value })} />
-          </div>
-          <div className="field">
-            <label className="label" htmlFor="dest">Estimated delivery</label>
-            <input id="dest" className="input" value={form.estimate} onChange={(e) => setForm({ ...form, estimate: e.target.value })} placeholder="1–2 days" />
-          </div>
-        </div>
-        <p className="xs muted" style={{ marginTop: 10 }}>
-          MedLink collects orders from your store and handles all customer delivery. Customers pay a{" "}
-          {Math.round(pricing.serviceFeeRate * 1000) / 10}% MedLink service fee plus a delivery fee on every
-          order — there are no free delivery thresholds.
-        </p>
       </div>
 
       <div className="row" style={{ justifyContent: "flex-end" }}>

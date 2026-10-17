@@ -56,7 +56,9 @@ export default function Navbar() {
 
   /* Role-specific dashboard link shown in the top bar, dropdown and mobile menu. */
   const dashboardLink = user
-    ? user.role === "supplier"
+    ? user.role === "customer"
+      ? { to: "/", label: "Dashboard", icon: <LayoutDashboard size={15} /> }
+      : user.role === "supplier"
       ? { to: "/supplier", label: "Supplier dashboard", icon: <LayoutDashboard size={15} /> }
       : user.role === "admin"
         ? { to: "/admin", label: "Admin dashboard", icon: <ShieldCheck size={15} /> }
@@ -95,6 +97,11 @@ export default function Navbar() {
         </div>
 
         <nav className="nav-links" aria-label="Main">
+          {user?.role === "customer" && (
+            <NavLink to="/" end className={navLink}>
+              Dashboard
+            </NavLink>
+          )}
           <div className="nav-dropdown" ref={catRef}>
             <button className={`nav-link${catOpen ? " nav-link-active" : ""}`} onClick={() => setCatOpen((v) => !v)}>
               Categories <ChevronDown size={14} />
@@ -169,9 +176,14 @@ export default function Navbar() {
 
                     {/* ----- Customer menu ----- */}
                     {user.role === "customer" && (
-                      <Link to="/account" onClick={() => setAccountOpen(false)}>
-                        <User size={15} /> My account
-                      </Link>
+                      <>
+                        <Link to="/" onClick={() => setAccountOpen(false)}>
+                          <LayoutDashboard size={15} /> Dashboard
+                        </Link>
+                        <Link to="/account" onClick={() => setAccountOpen(false)}>
+                          <User size={15} /> My account
+                        </Link>
+                      </>
                     )}
 
                     {/* ----- Supplier menu ----- */}
@@ -283,6 +295,9 @@ export default function Navbar() {
               </Link>
               {user?.role === "customer" && (
                 <>
+                  <Link to="/" onClick={() => setMobileOpen(false)}>
+                    <LayoutDashboard size={16} /> Dashboard
+                  </Link>
                   <Link to="/orders" onClick={() => setMobileOpen(false)}>
                     <Package size={16} /> Orders
                   </Link>

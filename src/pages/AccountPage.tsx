@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowLeft,
   Bell,
@@ -16,8 +16,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
-import { useState } from "react";
-import { useCustomerAddresses } from "../lib/customerData";
+import { useCustomerAddresses, saveCustomerAddress } from "../lib/customerData";
 import { useActiveProducts } from "../lib/registry";
 import { roleLabel, useAuth } from "../lib/auth";
 import { useWishlist } from "../lib/wishlist";
@@ -28,7 +27,9 @@ import FileUploader from "../components/ui/FileUploader";
 import { describeOwnerFolder, useUploadOwner } from "../lib/cloudinary";
 import { supabase } from "../lib/supabase";
 import { useToast } from "../lib/toast";
-import type { NotificationItem } from "../data/types";
+import { prettyDateTime } from "../lib/format";
+import type { DeliveryAddress, NotificationItem } from "../data/types";
+import Modal from "../components/ui/Modal";
 
 type SectionId = "saved" | "addresses" | "profile" | "settings" | "notifications";
 
@@ -68,6 +69,17 @@ export default function AccountPage() {
   // Every file this account uploads is written to this owner's folder.
   const owner = useUploadOwner();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl ?? null);
+  const [addressFormOpen, setAddressFormOpen] = useState(false);
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [newAddress, setNewAddress] = useState<DeliveryAddress>({
+    fullName: user?.name ?? "",
+    phone: "",
+    address: "",
+    city: "",
+    area: "",
+    instructions: "",
+    label: "Delivery address",
+  });
 
   const activeProducts = useActiveProducts();
   const savedAddresses = useCustomerAddresses(user?.email ?? "");
@@ -139,12 +151,149 @@ export default function AccountPage() {
                 </div>
               </div>
             ))}
-            <button className="card card-hover addr-add">
+            <button
+              className="card card-hover addr-add"
+              onClick={() => {
+                setNewAddress({
+                  fullName: user.name,
+                  phone: "",
+                  address: "",
+                  city: "",
+                  area: "",
+                  instructions: "",
+                  label: "Delivery address",
+                });
+                setAddressFormOpen(true);
+              }}
+            >
               <span className="addr-add-icon"><Plus size={22} /></span>
               <b className="small">Add a new address</b>
               <span className="xs muted">Clinic, hospital, home...</span>
             </button>
           </div>
+        )}
+        {active.id === "addresses" && (
+          <Modal
+            open={addressFormOpen}
+            onClose={() => setAddressFormOpen(false)}
+            title="Add delivery address"
+            footer={
+              <>
+                <button className="btn btn-ghost" onClick={() => setAddressFormOpen(false)} disabled={savingAddress}>Cancel</button>
+                <button
+                  className="btn btn-primary"
+                  type="submit"
+                  form="account-address-form"
+                  disabled={savingAddress}
+                >
+                  {savingAddress ? "Saving..." : "Save address"}
+                </button>
+              </>
+            }
+          >
+            <form
+              id="account-address-form"
+              className="form-grid"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                if (savingAddress) return;
+                setSavingAddress(true);
+                try {
+                  const result = await saveCustomerAddress(
+                    user.email,
+                    newAddress,
+                    newAddress.label || "Delivery address",
+                    user.id,
+                  );
+                  if (!result.ok) {
+                    push({ title: "Could not save address", message: result.error, icon: "error" });
+                    return;
+                  }
+                  setAddressFormOpen(false);
+                  push({ title: "Address saved", message: "You can select it during checkout.", icon: "success" });
+                } catch (error) {
+                  push({
+                    title: "Could not save address",
+                    message: error instanceof Error ? error.message : String(error),
+                    icon: "error",
+                  });
+                } finally {
+                  setSavingAddress(false);
+                }
+              }}
+            >
+              <div className="field">
+                <label className="label" htmlFor="account-address-label">Label</label>
+                <input
+                  id="account-address-label"
+                  className="input"
+                  value={newAddress.label}
+                  onChange={(event) => setNewAddress({ ...newAddress, label: event.target.value })}
+                  placeholder="Home, Work, Clinic"
+                />
+              </div>
+              <div className="field">
+                <label className="label" htmlFor="account-address-name">Recipient name</label>
+                <input
+                  id="account-address-name"
+                  className="input"
+                  required
+                  value={newAddress.fullName}
+                  onChange={(event) => setNewAddress({ ...newAddress, fullName: event.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label className="label" htmlFor="account-address-phone">Phone number</label>
+                <input
+                  id="account-address-phone"
+                  className="input"
+                  required
+                  value={newAddress.phone}
+                  onChange={(event) => setNewAddress({ ...newAddress, phone: event.target.value })}
+                  placeholder="+265 ..."
+                />
+              </div>
+              <div className="field full">
+                <label className="label" htmlFor="account-address-street">Street / plot / house</label>
+                <input
+                  id="account-address-street"
+                  className="input"
+                  required
+                  value={newAddress.address}
+                  onChange={(event) => setNewAddress({ ...newAddress, address: event.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label className="label" htmlFor="account-address-city">City</label>
+                <input
+                  id="account-address-city"
+                  className="input"
+                  required
+                  value={newAddress.city}
+                  onChange={(event) => setNewAddress({ ...newAddress, city: event.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label className="label" htmlFor="account-address-area">Area / Zone</label>
+                <input
+                  id="account-address-area"
+                  className="input"
+                  required
+                  value={newAddress.area}
+                  onChange={(event) => setNewAddress({ ...newAddress, area: event.target.value })}
+                />
+              </div>
+              <div className="field full">
+                <label className="label" htmlFor="account-address-instructions">Delivery instructions <span>(optional)</span></label>
+                <textarea
+                  id="account-address-instructions"
+                  className="textarea"
+                  value={newAddress.instructions}
+                  onChange={(event) => setNewAddress({ ...newAddress, instructions: event.target.value })}
+                />
+              </div>
+            </form>
+          </Modal>
         )}
 
         {active.id === "profile" && (
@@ -251,7 +400,7 @@ export default function AccountPage() {
                       <span className="grow">
                         <span className="between">
                           <b className="small">{n.title}</b>
-                          <span className="xs muted">{n.time}</span>
+                          <span className="xs muted">{prettyDateTime(n.time)}</span>
                         </span>
                         <span className="xs muted">{n.message}</span>
                       </span>

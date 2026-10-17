@@ -1,14 +1,17 @@
-import { ArrowLeft, CalendarClock, MapPin, Package, RotateCcw, Truck, Wallet } from "lucide-react";
+import { ArrowLeft, CalendarClock, CheckCircle2, MapPin, Package, RotateCcw, Truck, Wallet } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
-import { useCustomerOrderById } from "../lib/customerData";
+import { confirmCustomerDelivery, useCustomerOrderById } from "../lib/customerData";
 import { useAuth } from "../lib/auth";
 import { getSupplierById } from "../lib/registry";
-import { prettyDate, mwk } from "../lib/format";
+import { prettyDate, prettyDateTime, mwk } from "../lib/format";
 import { useCart } from "../lib/cart";
 import { useToast } from "../lib/toast";
 import OrderTimeline, { DeliveryFlow } from "../components/marketplace/OrderTimeline";
 import { CustomerOrderStatusBadge } from "../components/marketplace/OrderStatus";
+import OrderItemImage from "../components/marketplace/OrderItemImage";
+import { SupplierAvatar } from "../components/marketplace/SupplierCard";
 import EmptyState from "../components/ui/EmptyState";
+import { useState } from "react";
 
 export default function OrderDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +19,7 @@ export default function OrderDetailsPage() {
   const order = useCustomerOrderById(id, user?.email ?? "");
   const { add } = useCart();
   const { push } = useToast();
+  const [confirmingDelivery, setConfirmingDelivery] = useState(false);
 
   if (!order) {
     return (
@@ -35,6 +39,21 @@ export default function OrderDetailsPage() {
   const reorder = () => {
     order.lines.forEach((l) => add(l.productId, l.quantity));
     push({ title: "Items re-added", message: `${order.lines.reduce((a, l) => a + l.quantity, 0)} items added to your cart.`, icon: "cart" });
+  };
+
+  const confirmDelivery = async () => {
+    setConfirmingDelivery(true);
+    const result = await confirmCustomerDelivery(order.id);
+    setConfirmingDelivery(false);
+    if (!result.ok) {
+      push({ title: "Could not confirm delivery", message: result.error, icon: "error" });
+      return;
+    }
+    push({
+      title: "Delivery confirmed",
+      message: "The supplier and MedLink team have been notified.",
+      icon: "success",
+    });
   };
 
   return (
@@ -64,6 +83,29 @@ export default function OrderDetailsPage() {
         <OrderTimeline order={order} />
       </div>
 
+      {order.status === "out_for_delivery" && (
+        <div className="card card-pad" style={{ marginTop: 16 }}>
+          <div className="between wrap" style={{ gap: 14 }}>
+            <div>
+              <h2 className="h-card row" style={{ gap: 8 }}>
+                <CheckCircle2 size={17} className="teal" /> Have you received your order?
+              </h2>
+              <p className="small muted" style={{ marginTop: 6 }}>
+                Confirm only after you have received the items. This updates the order for the supplier and MedLink.
+              </p>
+            </div>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => void confirmDelivery()}
+              disabled={confirmingDelivery}
+            >
+              <CheckCircle2 size={14} />
+              {confirmingDelivery ? "Confirming..." : "Confirm delivery"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="split" style={{ marginTop: 20 }}>
         <div className="stack">
           {/* Items */}
@@ -74,9 +116,7 @@ export default function OrderDetailsPage() {
             <div className="stack-sm">
               {order.lines.map((l, i) => (
                 <div key={l.productId + i} className="review-line">
-                  <span className="order-item-thumb">
-                    <Package size={16} />
-                  </span>
+                  <OrderItemImage image={l.image} name={l.name} className="order-item-thumb" />
                   <div className="grow">
                     <div className="between">
                       <b className="small">{l.name}</b>
@@ -128,12 +168,7 @@ export default function OrderDetailsPage() {
               {suppliers.map((s) =>
                 s ? (
                   <Link to={`/suppliers/${s.slug}`} key={s.id} className="review-line">
-                    <span
-                      className="s-avatar"
-                      style={{ width: 34, height: 34, fontSize: 13, background: `linear-gradient(135deg, ${s.color}, #0B1120)`, color: "#fff" }}
-                    >
-                      {s.name.split(" ").map((w) => w[0]).slice(0, 2).join("")}
-                    </span>
+                    <SupplierAvatar supplier={s} size={34} />
                     <div className="grow">
                       <b className="small">{s.name}</b>
                       <div className="xs muted">{s.location.city} · Verified{s.verified ? " ✓" : ""}</div>
@@ -155,7 +190,7 @@ export default function OrderDetailsPage() {
                   <span className="small row" style={{ gap: 8 }}>
                     <span className="dot" style={{ background: "#FFB74D" }} /> {t.status.replace(/_/g, " ")}
                   </span>
-                  <span className="xs muted">{t.at}</span>
+                  <span className="xs muted">{prettyDateTime(t.at)}</span>
                 </div>
               ))}
               <div className="between">

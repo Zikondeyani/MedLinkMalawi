@@ -327,10 +327,10 @@ export default function AdminTransactionsPage() {
       </div>
 
       <div className="grid grid-4 dash-grid">
-        <DashboardCard icon={<ShoppingBag size={19} />} label="Paid in by buyers" value={mwkCompact(paidIn)} sub="Goods + service fee + delivery" tone="navy" />
-        <DashboardCard icon={<HandCoins size={19} />} label="MedLink revenue" value={mwkCompact(medlinkRevenue)} sub={`${Math.round(getPricing().serviceFeeRate * 100)}% fee ${mwkCompact(serviceFeeIncome)} + delivery ${mwkCompact(deliveryIncome)}`} tone="teal" />
-        <DashboardCard icon={<Lock size={19} />} label="Held for suppliers" value={mwkCompact(heldForSuppliers)} sub={`${heldRows.length} suppliers awaiting release`} tone="amber" />
-        <DashboardCard icon={<Landmark size={19} />} label="Released to suppliers" value={mwkCompact(releasedToSuppliers)} sub={`${payouts.length} payouts all-time`} tone="green" />
+        <DashboardCard icon={<ShoppingBag size={19} />} label="Paid in by buyers" value={mwk(paidIn)} sub="Goods + service fee + delivery" tone="navy" />
+        <DashboardCard icon={<HandCoins size={19} />} label="MedLink revenue" value={mwk(medlinkRevenue)} sub={`${Math.round(getPricing().serviceFeeRate * 100)}% fee ${mwkCompact(serviceFeeIncome)} + delivery ${mwkCompact(deliveryIncome)}`} tone="teal" />
+        <DashboardCard icon={<Lock size={19} />} label="Held for suppliers" value={mwk(heldForSuppliers)} sub={`${heldRows.length} suppliers awaiting release`} tone="amber" />
+        <DashboardCard icon={<Landmark size={19} />} label="Released to suppliers" value={mwk(releasedToSuppliers)} sub={`${payouts.length} payouts all-time`} tone="green" />
       </div>
 
       <div className="card dash-tip">

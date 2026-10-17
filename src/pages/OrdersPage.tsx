@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { ChevronRight, Package } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCustomerOrders } from "../lib/customerData";
 import { useAuth } from "../lib/auth";
 import { shortDate, mwk } from "../lib/format";
 import { CustomerOrderStatusBadge } from "../components/marketplace/OrderStatus";
+import OrderItemImage from "../components/marketplace/OrderItemImage";
 import EmptyState from "../components/ui/EmptyState";
 
 type Tab = "all" | "active" | "delivered";
@@ -57,7 +58,13 @@ export default function OrdersPage() {
               </div>
               <div className="order-card-art">
                 {o.lines.slice(0, 3).map((l, i) => (
-                  <StackedThumb key={i} line={l} index={i} />
+                  <OrderItemImage
+                    key={`${l.productId}-${i}`}
+                    image={l.image}
+                    name={l.name}
+                    className="order-art-thumb"
+                    style={{ zIndex: 3 - i, marginLeft: i === 0 ? 0 : -18 }}
+                  />
                 ))}
               </div>
             </div>
@@ -76,14 +83,5 @@ export default function OrdersPage() {
         ))}
       </div>
     </div>
-  );
-}
-
-function StackedThumb({ index }: { line: { image: string }; index: number }) {
-  const style = { zIndex: 3 - index, marginLeft: index === 0 ? 0 : -18 };
-  return (
-    <span className="order-art-thumb" style={style}>
-      <Package size={18} strokeWidth={1.8} />
-    </span>
   );
 }

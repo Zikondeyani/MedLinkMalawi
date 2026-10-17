@@ -564,6 +564,10 @@ export interface Database {
         };
         Returns: PlaceOrderResult;
       };
+      customer_confirm_delivery: {
+        Args: { p_order_id: string };
+        Returns: undefined;
+      };
       admin_release_supplier_funds: {
         Args: { target_supplier: string };
         Returns: ReleaseFundsResult;

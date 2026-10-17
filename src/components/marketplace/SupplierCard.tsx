@@ -27,7 +27,7 @@ export function SupplierAvatar({ supplier, size = 52 }: { supplier: Supplier; si
           src={logoUrl}
           alt=""
           aria-hidden="true"
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", background: "#fff" }}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
           onError={() => setFailedLogoUrl(logoUrl)}
         />
       ) : initials(supplier.name)}
@@ -37,34 +37,15 @@ export function SupplierAvatar({ supplier, size = 52 }: { supplier: Supplier; si
 
 export default function SupplierCard({ supplier }: { supplier: Supplier }) {
   return (
-    <article className="card card-hover scard" style={{ overflow: "hidden" }}>
-      <div
-        className="scard-banner"
-        style={{
-          background: supplier.bannerImage
-            ? `url(${supplier.bannerImage}) center / contain no-repeat`
-            : `linear-gradient(120deg, ${supplier.bannerGradient[0]}, ${supplier.bannerGradient[1]})`,
-          backgroundColor: supplier.bannerGradient[0],
-        }}
-      >
-        {!supplier.bannerImage && (
-          <>
-            <div className="bg-grid-pattern" />
-            <div className="scard-banner-art" />
-          </>
-        )}
-        <span className="scard-verify">
-          <VerificationBadge verified={supplier.verified} label={supplier.verified ? "Verified" : "Partner"} />
-        </span>
-      </div>
-
+    <article className="card card-hover scard">
       <div className="scard-body">
         <div className="scard-head">
           <SupplierAvatar supplier={supplier} size={56} />
           <div className="scard-title">
-            <Link to={`/suppliers/${supplier.slug}`} className="scard-name">
-              {supplier.name}
-            </Link>
+            <div className="scard-name-row">
+              <Link to={`/suppliers/${supplier.slug}`} className="scard-name">{supplier.name}</Link>
+              {supplier.verified && <VerificationBadge verified label="Verified" />}
+            </div>
             <span className="scard-cat muted small">{supplier.category}</span>
           </div>
           <Link to={`/suppliers/${supplier.slug}`} className="scard-go" aria-label={`Visit ${supplier.name}`}>

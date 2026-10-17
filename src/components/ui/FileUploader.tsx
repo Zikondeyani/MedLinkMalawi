@@ -32,6 +32,8 @@ export interface FileUploaderProps {
   hint?: string;
   /** Rendered as a circle instead of a wide card (avatars). */
   round?: boolean;
+  /** Hide the image preview when another component already previews this upload. */
+  showPreview?: boolean;
   maxBytes?: number;
 }
 
@@ -44,6 +46,7 @@ export default function FileUploader({
   onUploaded,
   hint,
   round = false,
+  showPreview = true,
   maxBytes,
 }: FileUploaderProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -71,7 +74,7 @@ export default function FileUploader({
   return (
     <div className={`uploader${round ? " uploader-round" : ""}`}>
       <div className="uploader-row">
-        {round ? (
+        {round && showPreview ? (
           <span className="uploader-avatar" aria-hidden="true">
             {shown ? <img src={shown} alt="" /> : null}
           </span>
@@ -98,8 +101,7 @@ export default function FileUploader({
           {busy ? "Uploading…" : shown ? "Replace" : "Upload"}
         </button>
       </div>
-      {shown && !round ? <img className="uploader-preview" src={shown} alt="" /> : null}
+      {shown && !round && showPreview ? <img className="uploader-preview" src={shown} alt="" /> : null}
     </div>
   );
 }
-

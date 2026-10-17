@@ -15,7 +15,7 @@
 
 import { useSyncExternalStore } from "react";
 import { supabase } from "./supabase";
-import { fetchAddresses, fetchOrders, maskPaymentReference } from "./db";
+import { fetchAddresses, fetchOrders, maskPaymentReference, toSavedAddress } from "./db";
 import type { Database, Json } from "./database.types";
 import type {
   CustomerOrderStatus,
@@ -319,6 +319,35 @@ export async function updateCustomerOrderStatus(
   return { ok: true };
 }
 
+/** Let the customer confirm receipt once the order is out for delivery. */
+export async function confirmCustomerDelivery(
+  id: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: "No backend configured." };
+  const current = orders.find((order) => order.id === id);
+  if (!current) return { ok: false, error: "That order was not found." };
+  if (current.status !== "out_for_delivery") {
+    return { ok: false, error: "Delivery can only be confirmed when the order is out for delivery." };
+  }
+
+  const { error } = await supabase.rpc("customer_confirm_delivery", { p_order_id: id });
+  if (error) return { ok: false, error: error.message };
+
+  const confirmedAt = new Date().toISOString();
+  const timeline: OrderTimelineEntry[] = [
+    ...current.timeline,
+    { status: "delivered", at: confirmedAt, note: "Delivery confirmed by the customer" },
+  ];
+  orders = orders.map((order) =>
+    order.id === id ? { ...order, status: "delivered", timeline } : order,
+  );
+  supplierOrders = supplierOrders.map((order) =>
+    order.orderId === id ? { ...order, status: "completed" } : order,
+  );
+  emit();
+  return { ok: true };
+}
+
 /** A store moving one fulfilment row along its own pipeline. */
 export async function updateSupplierOrderStatus(
   id: string,
@@ -351,13 +380,15 @@ export async function saveCustomerAddress(
   customerEmail: string,
   address: DeliveryAddress,
   label = "Delivery address",
-): Promise<void> {
-  if (!supabase) return;
+  customerId?: string,
+): Promise<{ ok: true; address: SavedAddress } | { ok: false; error: string }> {
+  if (!supabase) return { ok: false, error: "No backend configured." };
   const owned = getCustomerAddresses(customerEmail);
   const existing = owned.find((row) => addressMatches(row, address));
-  if (existing) return;
+  if (existing) return { ok: true, address: existing };
 
-  const { error } = await supabase.from("addresses").insert({
+  const { data, error } = await supabase.from("addresses").insert({
+    customer_id: customerId ?? null,
     customer_email: normalizeEmail(customerEmail),
     full_name: address.fullName.trim(),
     phone: address.phone.trim(),
@@ -367,9 +398,14 @@ export async function saveCustomerAddress(
     instructions: address.instructions.trim(),
     label,
     is_default: owned.length === 0,
-  });
-  if (error) return;
+  }).select("*").single();
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: false, error: "The address could not be saved. Please try again." };
+
+  const savedAddress = toSavedAddress(data);
+  addresses = [...addresses, savedAddress];
   emit();
+  return { ok: true, address: savedAddress };
 }
 
 export async function updateCustomerAddress(

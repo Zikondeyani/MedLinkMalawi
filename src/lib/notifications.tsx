@@ -14,20 +14,23 @@ import { useAuth } from "./auth";
 import { supabase } from "./supabase";
 import { toNotification } from "./db";
 import type { NotificationItem } from "../data/types";
+import { useToast } from "./toast";
 
 interface NotificationsContextValue {
   items: NotificationItem[];
   unread: number;
-  markRead: (id: string) => void;
-  markAllRead: () => void;
+  markRead: (id: string) => Promise<void>;
+  markAllRead: () => Promise<void>;
 }
 
 const NotificationsContext = createContext<NotificationsContextValue | null>(null);
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const { push } = useToast();
   const [items, setItems] = useState<NotificationItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const userId = user?.id;
+  const userRole = user?.role;
 
   const scope = user
     ? user.role === "supplier"
@@ -40,7 +43,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       setItems([]);
       return;
     }
-    setLoading(true);
     // Administrators read every notification; everyone else only their own.
     const query = supabase
       .from("notifications")
@@ -55,34 +57,88 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       const rows = (data ?? []).map(toNotification);
       setItems(rows.sort((a, b) => (a.read === b.read ? 0 : a.read ? 1 : -1)));
     }
-    setLoading(false);
   }, [scope?.column, scope?.value, user?.role]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  const scopeValue = scope?.value;
+
   const value = useMemo<NotificationsContextValue>(
     () => ({
       items,
       unread: items.filter((item) => !item.read).length,
-      markRead: (id) => {
-        setItems((current) => current.map((item) => (item.id === id ? { ...item, read: true } : item)));
-        if (supabase) void supabase.from("notifications").update({ read: true }).eq("id", id);
-      },
-      markAllRead: () => {
-        setItems((current) => current.map((item) => ({ ...item, read: true })));
-        if (supabase && scope?.value) {
-          const column = user?.role === "admin" ? null : scope.column;
-          if (column) {
-            void supabase.from("notifications").update({ read: true }).eq(column, scope.value);
-          } else {
-            void supabase.from("notifications").update({ read: true }).eq("read", false);
+      markRead: async (id) => {
+        const item = items.find((notification) => notification.id === id);
+        if (!item || item.read) return;
+
+        if (supabase) {
+          let query = supabase.from("notifications").update({ read: true }).eq("id", id);
+          if (userRole === "supplier") {
+            if (!scopeValue) return;
+            query = query.eq("supplier_id", scopeValue);
+          } else if (userRole === "customer" && userId) {
+            query = query.eq("customer_id", userId);
+          } else if (userRole !== "admin") {
+            return;
+          }
+
+          try {
+            const { data, error } = await query.select("id").maybeSingle();
+            if (error) throw error;
+            if (!data) throw new Error("The notification was not found or could not be updated.");
+          } catch (error) {
+            push({
+              title: "Could not mark notification as read",
+              message: error instanceof Error ? error.message : String(error),
+              icon: "error",
+            });
+            return;
           }
         }
+
+        setItems((current) => current.map((notification) =>
+          notification.id === id ? { ...notification, read: true } : notification,
+        ));
+      },
+      markAllRead: async () => {
+        const unreadIds = items.filter((item) => !item.read).map((item) => item.id);
+        if (unreadIds.length === 0) return;
+
+        if (supabase) {
+          if (!userRole || (userRole === "supplier" && !scopeValue)) return;
+
+          let query = supabase.from("notifications").update({ read: true }).eq("read", false);
+          if (userRole === "supplier" && scopeValue) {
+            query = query.eq("supplier_id", scopeValue);
+          } else if (userRole === "customer" && userId) {
+            query = query.eq("customer_id", userId);
+          } else if (userRole !== "admin") {
+            return;
+          }
+
+          try {
+            const { data, error } = await query.select("id");
+            if (error) throw error;
+            const updatedIds = new Set((data ?? []).map((notification) => notification.id));
+            if (unreadIds.some((id) => !updatedIds.has(id))) {
+              throw new Error("Some notifications could not be updated. Refresh and try again.");
+            }
+          } catch (error) {
+            push({
+              title: "Could not mark notifications as read",
+              message: error instanceof Error ? error.message : String(error),
+              icon: "error",
+            });
+            return;
+          }
+        }
+
+        setItems((current) => current.map((item) => ({ ...item, read: true })));
       },
     }),
-    [items, scope?.value, scope?.column, user?.role, loading],
+    [items, scopeValue, userId, userRole, push],
   );
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;

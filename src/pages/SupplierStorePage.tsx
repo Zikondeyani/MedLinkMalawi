@@ -15,12 +15,12 @@ import { Link, useParams } from "react-router-dom";
 import { useSuppliers } from "../lib/registry";
 import { productsBySupplier } from "../lib/registry";
 import { getCategoryById } from "../lib/registry";
-import { mwk } from "../lib/format";
 import { SupplierAvatar } from "../components/marketplace/SupplierCard";
 import ProductGrid from "../components/marketplace/ProductGrid";
 import Rating from "../components/ui/Rating";
 import VerificationBadge from "../components/ui/VerificationBadge";
 import EmptyState from "../components/ui/EmptyState";
+import { prettyDate } from "../lib/format";
 
 type Tab = "products" | "categories" | "about";
 
@@ -57,9 +57,21 @@ export default function SupplierStorePage() {
   return (
     <div className="store-page">
       {/* Banner */}
-      <div className="store-banner" style={{ background: `linear-gradient(120deg, ${supplier.bannerGradient[0]}, ${supplier.bannerGradient[1]})` }}>
-        <div className="bg-grid-pattern" />
-        <div className="store-banner-art" />
+      <div
+        className="store-banner"
+        style={{
+          background: supplier.bannerImage
+            ? `url(${supplier.bannerImage}) center / cover no-repeat`
+            : `linear-gradient(120deg, ${supplier.bannerGradient[0]}, ${supplier.bannerGradient[1]})`,
+          backgroundColor: supplier.bannerGradient[0],
+        }}
+      >
+        {!supplier.bannerImage && (
+          <>
+            <div className="bg-grid-pattern" />
+            <div className="store-banner-art" />
+          </>
+        )}
       </div>
 
       <div className="container">
@@ -113,17 +125,10 @@ export default function SupplierStorePage() {
               </div>
             </div>
             <div className="store-info-item">
-              <Truck size={16} className="muted" />
-              <div>
-                <small className="muted">MedLink delivery</small>
-                <b className="small">{mwk(supplier.delivery.fee)} · {supplier.delivery.estimate}</b>
-              </div>
-            </div>
-            <div className="store-info-item">
               <Calendar size={16} className="muted" />
               <div>
                 <small className="muted">Joined</small>
-                <b className="small">{supplier.joined}</b>
+                <b className="small">{prettyDate(supplier.joined)}</b>
               </div>
             </div>
           </div>
@@ -186,41 +191,16 @@ export default function SupplierStorePage() {
 
         {/* Tab: about */}
         {tab === "about" && (
-          <div className="split" style={{ marginTop: 24 }}>
-            <div className="stack">
-              <div className="card card-pad">
-                <h3 className="h-card row" style={{ gap: 8, marginBottom: 10 }}>
-                  <Building2 size={18} className="teal" /> About this store
-                </h3>
-                <p className="small muted" style={{ lineHeight: 1.7 }}>{supplier.description}</p>
-                <div className="trust-row" style={{ marginTop: 16 }}>
-                  <ShieldCheck size={17} /> {supplier.verified ? "Identity and business documents verified by MedLink" : "Verification in progress"}
-                </div>
-                <div className="trust-row">
-                  <Truck size={17} /> Items are collected and delivered by the MedLink delivery service
-                </div>
-              </div>
+          <div className="card card-pad" style={{ marginTop: 24 }}>
+            <h3 className="h-card row" style={{ gap: 8, marginBottom: 10 }}>
+              <Building2 size={18} className="teal" /> About this store
+            </h3>
+            <p className="small muted" style={{ lineHeight: 1.7 }}>{supplier.description}</p>
+            <div className="trust-row" style={{ marginTop: 16 }}>
+              <ShieldCheck size={17} /> {supplier.verified ? "Identity and business documents verified by MedLink" : "Verification in progress"}
             </div>
-            <div className="card card-pad">
-              <h3 className="h-card row" style={{ gap: 8, marginBottom: 12 }}>
-                <Truck size={18} className="teal" /> Delivery information
-              </h3>
-              <div className="summary-row">
-                <span>Standard delivery fee</span><b>{mwk(supplier.delivery.fee)}</b>
-              </div>
-              <div className="summary-row">
-                <span>Estimated delivery</span><b>{supplier.delivery.estimate}</b>
-              </div>
-              <hr className="divider-solid" style={{ margin: "14px 0" }} />
-              <div className="summary-row">
-                <span>Location</span><b>{supplier.location.city}, {supplier.location.area}</b>
-              </div>
-              <div className="summary-row">
-                <span>Phone</span><b>{supplier.phone}</b>
-              </div>
-              <div className="summary-row">
-                <span>Email</span><b>{supplier.email}</b>
-              </div>
+            <div className="trust-row">
+              <Truck size={17} /> Items are collected and delivered by the MedLink delivery service
             </div>
           </div>
         )}

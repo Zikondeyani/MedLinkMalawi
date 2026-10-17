@@ -7,6 +7,7 @@ import {
   Landmark,
   Loader2,
   Package,
+  Plus,
   Smartphone,
   Truck,
 } from "lucide-react";
@@ -16,7 +17,7 @@ import { mwk } from "../lib/format";
 import { useCart, type CartSummary } from "../lib/cart";
 import { useToast } from "../lib/toast";
 import { useAuth } from "../lib/auth";
-import { getDefaultCustomerAddress, placeCustomerOrder, saveCustomerAddress } from "../lib/customerData";
+import { getDefaultCustomerAddress, placeCustomerOrder, saveCustomerAddress, useCustomerAddresses } from "../lib/customerData";
 import { getPricing, loadMarketplace } from "../lib/registry";
 import { quoteDelivery, serviceFee } from "../components/marketplace/DeliveryFeeCard";
 import CheckoutSummary from "../components/marketplace/CheckoutSummary";
@@ -71,6 +72,8 @@ export default function CheckoutPage() {
   const { push } = useToast();
   const { user } = useAuth();
   const customerEmail = user?.email ?? "";
+  const savedAddresses = useCustomerAddresses(customerEmail);
+  const defaultAddress = customerEmail ? getDefaultCustomerAddress(customerEmail) : undefined;
 
   const [step, setStep] = useState<Step>("Delivery");
   const [orderPlaced, setOrderPlaced] = useState(false);
@@ -79,7 +82,7 @@ export default function CheckoutPage() {
   const [placedOrderNumber, setPlacedOrderNumber] = useState("");
 
   const [address, setAddress] = useState<DeliveryAddress>(() => {
-    const saved = customerEmail ? getDefaultCustomerAddress(customerEmail) : undefined;
+    const saved = defaultAddress;
     return {
       fullName: saved?.fullName ?? user?.name ?? "",
       phone: saved?.phone ?? "",
@@ -89,6 +92,10 @@ export default function CheckoutPage() {
       instructions: saved?.instructions ?? "",
     };
   });
+  const [selectedAddressId, setSelectedAddressId] = useState(defaultAddress?.id ?? "");
+  const [addingAddress, setAddingAddress] = useState(false);
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [addressLabel, setAddressLabel] = useState("Delivery address");
   const [errors, setErrors] = useState<FieldErrors>({});
 
   const [payment, setPayment] = useState<PaymentFields>({
@@ -155,8 +162,46 @@ export default function CheckoutPage() {
     return ok(next);
   };
 
-  const next = () => {
-    if (step === "Delivery" && !validateAddress()) return;
+  const next = async () => {
+    if (step === "Delivery") {
+      if (!addingAddress && !selectedAddressId) {
+        push({ title: "Choose a delivery address", message: "Select a saved address or add a new one to continue.", icon: "info" });
+        return;
+      }
+      if (!validateAddress()) return;
+
+      if (addingAddress) {
+        if (!user || savingAddress) return;
+        setSavingAddress(true);
+        try {
+          const result = await saveCustomerAddress(customerEmail, address, addressLabel, user.id);
+          if (!result.ok) {
+            push({ title: "Could not save address", message: result.error, icon: "error" });
+            return;
+          }
+          setSelectedAddressId(result.address.id);
+          setAddress({
+            fullName: result.address.fullName,
+            phone: result.address.phone,
+            address: result.address.address,
+            city: result.address.city,
+            area: result.address.area,
+            instructions: result.address.instructions,
+            label: result.address.label,
+          });
+          setAddingAddress(false);
+        } catch (error) {
+          push({
+            title: "Could not save address",
+            message: error instanceof Error ? error.message : String(error),
+            icon: "error",
+          });
+          return;
+        } finally {
+          setSavingAddress(false);
+        }
+      }
+    }
     if (step === "Payment" && !validatePayment()) return;
     const idx = steps.indexOf(step);
     if (idx < steps.length - 1) {
@@ -195,9 +240,8 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Remember where it was going, then re-read the marketplace so the order
-    // list, the store queues and the notifications all show the new order.
-    void saveCustomerAddress(user.email, address);
+    // Re-read the marketplace so the order list, store queues and notifications
+    // all show the new order.
     void loadMarketplace();
 
     setPlaced(summary);
@@ -284,46 +328,153 @@ export default function CheckoutPage() {
                 </h2>
                 <span className="badge badge-teal">Delivery by MedLink</span>
               </div>
-              <ErrorSummary
-                errors={errors}
-                order={["Full name", "Phone number", "Delivery address", "City", "Area / Zone"]}
-              />
-              <div className="form-grid">
-                <div className="field">
-                  <label className="label" htmlFor="fullName">Full name</label>
-                  <input id="fullName" value={address.fullName} onChange={(e) => setAddress({ ...address, fullName: e.target.value })} {...invalidProps(errors, "fullName", "input")} />
-                  <FieldError error={errors.fullName} field="fullName" />
+              {savedAddresses.length > 0 && (
+                <fieldset className="checkout-addresses">
+                  <legend className="label">Choose a saved address</legend>
+                  <div className="stack-sm">
+                    {savedAddresses.map((saved) => (
+                      <label
+                        key={saved.id}
+                        className={`checkout-address-option${selectedAddressId === saved.id ? " selected" : ""}`}
+                      >
+                        <input
+                          type="radio"
+                          name="savedAddress"
+                          value={saved.id}
+                          checked={selectedAddressId === saved.id && !addingAddress}
+                          onChange={() => {
+                            setSelectedAddressId(saved.id);
+                            setAddress({
+                              fullName: saved.fullName,
+                              phone: saved.phone,
+                              address: saved.address,
+                              city: saved.city,
+                              area: saved.area,
+                              instructions: saved.instructions,
+                              label: saved.label,
+                            });
+                            setAddingAddress(false);
+                            setErrors({});
+                          }}
+                        />
+                        <span className="grow">
+                          <span className="between">
+                            <b className="small">{saved.label || "Delivery address"}</b>
+                            {saved.isDefault && <span className="badge badge-green">Default</span>}
+                          </span>
+                          <span className="small">{saved.fullName} · {saved.phone}</span>
+                          <span className="xs muted">{saved.address}, {saved.area}, {saved.city}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+              {!addingAddress && (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  style={{ marginBottom: 16 }}
+                  onClick={() => {
+                    setAddress({
+                      fullName: user?.name ?? "",
+                      phone: "",
+                      address: "",
+                      city: "Lilongwe",
+                      area: "",
+                      instructions: "",
+                    });
+                    setAddressLabel("Delivery address");
+                    setSelectedAddressId("");
+                    setAddingAddress(true);
+                    setErrors({});
+                  }}
+                >
+                  <Plus size={14} /> {savedAddresses.length ? "Add another address" : "Add delivery address"}
+                </button>
+              )}
+              {addingAddress && (
+                <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
+                  <b className="small">{savedAddresses.length ? "New delivery address" : "Add your delivery address"}</b>
+                  {savedAddresses.length > 0 && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        const selected = savedAddresses.find((saved) => saved.id === selectedAddressId);
+                        if (selected) {
+                          setAddress({
+                            fullName: selected.fullName,
+                            phone: selected.phone,
+                            address: selected.address,
+                            city: selected.city,
+                            area: selected.area,
+                            instructions: selected.instructions,
+                          });
+                          setAddingAddress(false);
+                        }
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  )}
                 </div>
-                <div className="field">
-                  <label className="label" htmlFor="phone">Phone number</label>
-                  <input id="phone" placeholder="+265 ..." value={address.phone} onChange={(e) => setAddress({ ...address, phone: e.target.value })} {...invalidProps(errors, "phone", "input")} />
-                  <FieldError error={errors.phone} field="phone" />
+              )}
+              {!addingAddress && selectedAddressId ? (
+                <div className="checkout-selected-address">
+                  <b className="small">{address.fullName}</b>
+                  <span className="small">{address.address}</span>
+                  <span className="small muted">{address.area}, {address.city} · {address.phone}</span>
+                  {address.instructions && <span className="xs muted">{address.instructions}</span>}
                 </div>
-                <div className="field full">
-                  <label className="label" htmlFor="address">Delivery address</label>
-                  <input id="address" placeholder="Street / plot / house number" value={address.address} onChange={(e) => setAddress({ ...address, address: e.target.value })} {...invalidProps(errors, "address", "input")} />
-                  <FieldError error={errors.address} field="address" />
-                </div>
-                <div className="field">
-                  <label className="label" htmlFor="city">City</label>
-                  <select id="city" value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} {...invalidProps(errors, "city", "select")}>
-                    <option>Lilongwe</option>
-                    <option>Blantyre</option>
-                    <option>Mzuzu</option>
-                    <option>Zomba</option>
-                  </select>
-                  <FieldError error={errors.city} field="city" />
-                </div>
-                <div className="field">
-                  <label className="label" htmlFor="area">Area / Zone</label>
-                  <input id="area" placeholder="e.g. Area 9, Chichiri" value={address.area} onChange={(e) => setAddress({ ...address, area: e.target.value })} {...invalidProps(errors, "area", "input")} />
-                  <FieldError error={errors.area} field="area" />
-                </div>
-                <div className="field full">
-                  <label className="label" htmlFor="instructions">Additional delivery instructions <span>(optional)</span></label>
-                  <textarea id="instructions" className="textarea" value={address.instructions} onChange={(e) => setAddress({ ...address, instructions: e.target.value })} placeholder="e.g. Call ahead, deliver to reception..." />
-                </div>
-              </div>
+              ) : addingAddress ? (
+                <>
+                  <div className="field" style={{ marginBottom: 14 }}>
+                    <label className="label" htmlFor="addressLabel">Address label <span>(optional)</span></label>
+                    <input id="addressLabel" className="input" value={addressLabel} onChange={(e) => setAddressLabel(e.target.value)} placeholder="Home, Work, Clinic..." />
+                  </div>
+                  <ErrorSummary
+                    errors={errors}
+                    order={["Full name", "Phone number", "Delivery address", "City", "Area / Zone"]}
+                  />
+                  <div className="form-grid">
+                    <div className="field">
+                      <label className="label" htmlFor="fullName">Full name</label>
+                      <input id="fullName" value={address.fullName} onChange={(e) => setAddress({ ...address, fullName: e.target.value })} {...invalidProps(errors, "fullName", "input")} />
+                      <FieldError error={errors.fullName} field="fullName" />
+                    </div>
+                    <div className="field">
+                      <label className="label" htmlFor="phone">Phone number</label>
+                      <input id="phone" placeholder="+265 ..." value={address.phone} onChange={(e) => setAddress({ ...address, phone: e.target.value })} {...invalidProps(errors, "phone", "input")} />
+                      <FieldError error={errors.phone} field="phone" />
+                    </div>
+                    <div className="field full">
+                      <label className="label" htmlFor="address">Delivery address</label>
+                      <input id="address" placeholder="Street / plot / house number" value={address.address} onChange={(e) => setAddress({ ...address, address: e.target.value })} {...invalidProps(errors, "address", "input")} />
+                      <FieldError error={errors.address} field="address" />
+                    </div>
+                    <div className="field">
+                      <label className="label" htmlFor="city">City</label>
+                      <select id="city" value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} {...invalidProps(errors, "city", "select")}>
+                        <option>Lilongwe</option>
+                        <option>Blantyre</option>
+                        <option>Mzuzu</option>
+                        <option>Zomba</option>
+                      </select>
+                      <FieldError error={errors.city} field="city" />
+                    </div>
+                    <div className="field">
+                      <label className="label" htmlFor="area">Area / Zone</label>
+                      <input id="area" placeholder="e.g. Area 9, Chichiri" value={address.area} onChange={(e) => setAddress({ ...address, area: e.target.value })} {...invalidProps(errors, "area", "input")} />
+                      <FieldError error={errors.area} field="area" />
+                    </div>
+                    <div className="field full">
+                      <label className="label" htmlFor="instructions">Additional delivery instructions <span>(optional)</span></label>
+                      <textarea id="instructions" className="textarea" value={address.instructions} onChange={(e) => setAddress({ ...address, instructions: e.target.value })} placeholder="e.g. Call ahead, deliver to reception..." />
+                    </div>
+                  </div>
+                </>
+              ) : null}
             </div>
           )}
 
@@ -477,8 +628,8 @@ export default function CheckoutPage() {
           {/* Primary action — full width of the column so it matches the cards */}
           <div className="checkout-nav">
             {step !== "Review" ? (
-              <button className="btn btn-primary btn-lg" onClick={next}>
-                Continue <ChevronRight size={16} />
+              <button className="btn btn-primary btn-lg" onClick={() => void next()} disabled={savingAddress}>
+                {savingAddress ? <Loader2 size={17} className="spin" /> : <>Continue <ChevronRight size={16} /></>}
               </button>
             ) : (
               <button className="btn btn-green btn-lg" onClick={() => void placeOrder()} disabled={placing}>

@@ -2,6 +2,7 @@ import { ArrowLeft, Bell, Info, Package, Truck, Wallet } from "lucide-react";
 import { Link } from "react-router-dom";
 import { roleLabel, useAuth } from "../lib/auth";
 import { useNotifications } from "../lib/notifications";
+import { prettyDateTime } from "../lib/format";
 import type { NotificationItem } from "../data/types";
 
 const NOTIF_ICONS: Record<NotificationItem["icon"], typeof Info> = {
@@ -66,7 +67,7 @@ export default function NotificationsPage() {
                   <span className="grow">
                     <span className="between">
                       <b className="small">{item.title}</b>
-                      <span className="xs muted">{item.time}</span>
+                      <span className="xs muted">{prettyDateTime(item.time)}</span>
                     </span>
                     <span className="xs muted">{item.message}</span>
                   </span>

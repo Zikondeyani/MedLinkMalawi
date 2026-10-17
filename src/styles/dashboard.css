@@ -31,7 +31,7 @@
   border-radius: 13px;
   display: grid;
   place-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 .dash-card-navy {
   background: var(--navy-soft);
@@ -56,12 +56,32 @@
 }
 .dash-card-value {
   font-family: var(--font-display);
-  font-size: 25px;
+  font-size: 22px;
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.15;
   margin-top: 2px;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.dash-card-money-value {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+}
+.dash-card-currency {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--muted);
+  flex: none;
+}
+.dash-card-money-value > span:last-child {
+  min-width: 0;
+  font-size: clamp(17px, 2vw, 22px);
+  letter-spacing: -0.03em;
 }
 .dash-card-sub {
   display: flex;
@@ -323,49 +343,46 @@
   color: var(--teal-600);
 }
 
-/* ---------- Store preview (banner + logo) ---------- */
-.store-preview {
+/* ---------- Upload grid ---------- */
+.store-branding-preview {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: #fff;
-  box-shadow: var(--shadow-xs);
 }
-.store-preview-banner {
+.store-branding-cover {
   position: relative;
-  height: 158px;
+  height: 156px;
+  background-color: var(--navy);
+  background-position: center;
+  background-size: cover;
 }
-.store-preview-banner .bg-grid-pattern {
+.store-branding-cover .bg-grid-pattern {
   position: absolute;
   inset: 0;
 }
-.store-preview-actions {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 1;
-}
-.store-preview-head {
-  position: relative;
+.store-branding-profile {
   display: flex;
   align-items: flex-end;
   gap: 16px;
-  padding: 0 22px 22px;
-  margin-top: -36px;
+  padding: 0 22px 18px;
 }
-.store-preview-head .s-avatar {
+.store-branding-profile .s-avatar {
+  position: relative;
+  flex: none;
+  margin-top: -44px;
   border: 4px solid #fff;
+  border-radius: 20px;
   box-shadow: var(--shadow);
 }
-.store-preview-head .btn {
-  position: absolute;
-  right: 16px;
-  bottom: -10px;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(6px);
+.store-branding-identity {
+  min-width: 0;
+  padding-bottom: 4px;
+}
+.store-branding-identity .h-card {
+  overflow-wrap: anywhere;
 }
 
-/* ---------- Upload grid ---------- */
 .upload-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -405,7 +422,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
 }
 .upload-tile-remove {
   position: absolute;
@@ -491,24 +508,27 @@
   .upload-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  .store-preview-banner {
+  .store-branding-cover {
     height: 128px;
   }
 }
 
 @media (max-width: 640px) {
+  .store-branding-cover {
+    height: 112px;
+  }
+  .store-branding-profile {
+    align-items: flex-start;
+    gap: 12px;
+    padding: 0 14px 16px;
+  }
+  .store-branding-profile .s-avatar {
+    width: 68px !important;
+    height: 68px !important;
+    margin-top: -34px;
+  }
   .spec-editor {
     grid-template-columns: 1fr;
-  }
-  .store-preview-head {
-    flex-wrap: wrap;
-    padding-bottom: 16px;
-  }
-  .store-preview-head .btn {
-    position: static;
-    bottom: auto;
-    right: auto;
-    margin-left: auto;
   }
   .supplier-steps {
     overflow-x: auto;

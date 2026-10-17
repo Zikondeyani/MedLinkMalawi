@@ -44,7 +44,7 @@ export default function ProductImage({
         className={`art art-photo ${className}`}
         src={imageUrl}
         alt={name}
-        style={{ height, objectFit: "contain", background: "#fff" }}
+        style={{ height, objectFit: "cover" }}
         onError={() => setFailedUrl(imageUrl)}
       />
     );

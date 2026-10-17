@@ -16,11 +16,20 @@ export default function DashboardCard({
   trend?: number;
   tone?: "navy" | "teal" | "green" | "amber";
 }) {
+  const moneyMatch = /^MWK\s+(.+)$/.exec(value);
+
   return (
     <div className="card dash-card">
       <div className={`dash-card-icon dash-card-${tone}`}>{icon}</div>
       <div className="dash-card-label">{label}</div>
-      <div className="dash-card-value">{value}</div>
+      <div className={`dash-card-value${moneyMatch ? " dash-card-money-value" : ""}`}>
+        {moneyMatch ? (
+          <>
+            <span className="dash-card-currency">MWK</span>
+            <span>{moneyMatch[1]}</span>
+          </>
+        ) : value}
+      </div>
       <div className="dash-card-sub">
         {trend != null && (
           <span className={`dash-trend ${trend >= 0 ? "up" : "down"}`}>

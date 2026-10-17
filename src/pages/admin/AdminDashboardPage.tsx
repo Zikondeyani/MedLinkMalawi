@@ -2,7 +2,7 @@ import { ClipboardList, Package, ShieldCheck, ShoppingBag, Store, Tags, Users, C
 import { Link } from "react-router-dom";
 import { useAllOrdersSorted, useCategorySales, useMonthlySales, usePlatformSummary } from "../../lib/analytics";
 import { useActiveProducts, useApplications, useCategories, reviewApplication, useSuppliers } from "../../lib/registry";
-import { mwk, mwkCompact, shortDate } from "../../lib/format";
+import { mwk, shortDate } from "../../lib/format";
 import DashboardCard from "../../components/ui/DashboardCard";
 import { LineChart, BarChart } from "../../components/charts/Charts";
 import { CustomerOrderStatusBadge } from "../../components/marketplace/OrderStatus";
@@ -97,7 +97,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-4 dash-grid">
-        <DashboardCard icon={<ShoppingBag size={19} />} label="Gross sales (GMV)" value={mwkCompact(summary.revenue)} sub="All live orders" tone="amber" />
+        <DashboardCard icon={<ShoppingBag size={19} />} label="Gross sales (GMV)" value={mwk(summary.revenue)} sub="All live orders" tone="amber" />
         <DashboardCard icon={<ClipboardList size={19} />} label="Orders" value={String(summary.orders)} sub="Marketplace orders" tone="teal" />
         <DashboardCard icon={<Store size={19} />} label="Suppliers" value={String(summary.suppliers)} sub={`${suppliers.length - suppliers.filter((s) => s.suspended).length} live`} tone="navy" />
         <DashboardCard icon={<Package size={19} />} label="Active products" value={String(activeProducts.length)} sub="Across all stores" tone="green" />

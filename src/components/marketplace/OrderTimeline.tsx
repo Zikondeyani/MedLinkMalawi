@@ -1,5 +1,6 @@
 import { Check, Package, Truck, XCircle, Clock } from "lucide-react";
 import type { CustomerOrderStatus, Order } from "../../data/types";
+import { prettyDateTime } from "../../lib/format";
 
 const steps: { key: CustomerOrderStatus; label: string; sub: string }[] = [
   { key: "confirmed", label: "Confirmed", sub: "Order accepted" },
@@ -64,7 +65,7 @@ export default function OrderTimeline({ order }: { order: Order }) {
                   </span>
                   <b>{s.label}</b>
                   <small className="muted">{s.sub}</small>
-                  {current && order.timeline.length > 0 && <small className="muted">{order.timeline[order.timeline.length - 1].at}</small>}
+                  {current && order.timeline.length > 0 && <small className="muted">{prettyDateTime(order.timeline[order.timeline.length - 1].at)}</small>}
                 </li>
               );
             })}
@@ -83,7 +84,7 @@ export default function OrderTimeline({ order }: { order: Order }) {
                     <b>{s.label}</b>
                     <small className="muted">{s.sub}</small>
                   </div>
-                  {current && <small className="muted timeline-vtime">{order.timeline[order.timeline.length - 1].at}</small>}
+                  {current && order.timeline.length > 0 && <small className="muted timeline-vtime">{prettyDateTime(order.timeline[order.timeline.length - 1].at)}</small>}
                 </li>
               );
             })}
