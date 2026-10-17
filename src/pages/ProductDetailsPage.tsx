@@ -58,6 +58,8 @@ export default function ProductDetailsPage() {
   const supplier = getSupplierById(product.supplierId);
   const wished = has(product.id);
   const galleryIcons = ["activity", "shield", "stethoscope"];
+  const productPhotos = product.images.length > 0 ? product.images : product.image ? [product.image] : [];
+  const galleryLength = productPhotos.length > 0 ? productPhotos.length : galleryIcons.length;
 
   const buyNow = () => {
     add(product.id, qty);
@@ -86,6 +88,7 @@ export default function ProductDetailsPage() {
               productId={product.id + imgIdx}
               categoryId={product.categoryId}
               name={product.name}
+              imageUrl={productPhotos[imgIdx]}
               iconName={galleryIcons[imgIdx]}
               height={420}
             />
@@ -106,14 +109,14 @@ export default function ProductDetailsPage() {
             )}
           </div>
           <div className="p-thumbs">
-            {[...Array(3)].map((_, i) => (
+            {[...Array(galleryLength)].map((_, i) => (
               <button
                 key={i}
                 className={i === imgIdx ? "thumb thumb-active" : "thumb"}
                 onClick={() => setImgIdx(i)}
                 aria-label={`View image ${i + 1}`}
               >
-                <ProductImage productId={product.id + "t" + i} categoryId={product.categoryId} name={product.name} iconName={galleryIcons[i]} height={76} />
+                <ProductImage productId={product.id + "t" + i} categoryId={product.categoryId} name={product.name} imageUrl={productPhotos[i]} iconName={galleryIcons[i]} height={76} />
               </button>
             ))}
           </div>

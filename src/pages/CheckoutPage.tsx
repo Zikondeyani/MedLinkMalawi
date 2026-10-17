@@ -447,7 +447,7 @@ export default function CheckoutPage() {
                       <div className="stack-sm">
                         {g.lines.map(({ product, quantity }) => (
                           <div key={product.id} className="review-line">
-                            <ProductImage productId={product.id} categoryId={product.categoryId} name={product.name} height={52} className="review-line-img" />
+                            <ProductImage productId={product.id} categoryId={product.categoryId} name={product.name} imageUrl={product.image ?? product.images[0]} height={52} className="review-line-img" />
                             <div className="grow">
                               <b className="small">{product.name}</b>
                               <div className="xs muted">{mwk(product.price)} × {quantity}</div>

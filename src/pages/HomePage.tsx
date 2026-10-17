@@ -88,7 +88,7 @@ export default function HomePage() {
               {/* Product showcase */}
               {featured.slice(0, 3).map((p, i) => (
                 <Link key={p.id} to={`/products/${p.slug}`} className={`hero-show hero-show-${i + 1}`}>
-                  <ProductImage productId={p.id} categoryId={p.categoryId} name={p.name} className="hero-show-img" />
+                  <ProductImage productId={p.id} categoryId={p.categoryId} name={p.name} imageUrl={p.image ?? p.images[0]} className="hero-show-img" />
                   {i < 2 && (
                     <div className="hero-show-body">
                       <small className="hero-show-supplier">{getSupplierById(p.supplierId)?.name}</small>

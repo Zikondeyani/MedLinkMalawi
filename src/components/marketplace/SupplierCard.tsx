@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ArrowRight, MapPin, Package } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Supplier } from "../../data/types";
@@ -5,6 +6,9 @@ import { initials } from "../../lib/format";
 import VerificationBadge from "../ui/VerificationBadge";
 
 export function SupplierAvatar({ supplier, size = 52 }: { supplier: Supplier; size?: number }) {
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null);
+  const logoUrl = supplier.logoImage;
+
   return (
     <span
       className="s-avatar"
@@ -14,9 +18,19 @@ export function SupplierAvatar({ supplier, size = 52 }: { supplier: Supplier; si
         fontSize: size * 0.4,
         background: `linear-gradient(135deg, ${supplier.color}, #0B1120)`,
         color: "#fff",
+        position: "relative",
+        overflow: "hidden",
       }}
     >
-      {initials(supplier.name)}
+      {logoUrl && failedLogoUrl !== logoUrl ? (
+        <img
+          src={logoUrl}
+          alt=""
+          aria-hidden="true"
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", background: "#fff" }}
+          onError={() => setFailedLogoUrl(logoUrl)}
+        />
+      ) : initials(supplier.name)}
     </span>
   );
 }
@@ -26,10 +40,19 @@ export default function SupplierCard({ supplier }: { supplier: Supplier }) {
     <article className="card card-hover scard" style={{ overflow: "hidden" }}>
       <div
         className="scard-banner"
-        style={{ background: `linear-gradient(120deg, ${supplier.bannerGradient[0]}, ${supplier.bannerGradient[1]})` }}
+        style={{
+          background: supplier.bannerImage
+            ? `url(${supplier.bannerImage}) center / contain no-repeat`
+            : `linear-gradient(120deg, ${supplier.bannerGradient[0]}, ${supplier.bannerGradient[1]})`,
+          backgroundColor: supplier.bannerGradient[0],
+        }}
       >
-        <div className="bg-grid-pattern" />
-        <div className="scard-banner-art" />
+        {!supplier.bannerImage && (
+          <>
+            <div className="bg-grid-pattern" />
+            <div className="scard-banner-art" />
+          </>
+        )}
         <span className="scard-verify">
           <VerificationBadge verified={supplier.verified} label={supplier.verified ? "Verified" : "Partner"} />
         </span>

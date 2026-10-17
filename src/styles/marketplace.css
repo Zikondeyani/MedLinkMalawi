@@ -646,6 +646,9 @@
 .pcard:hover .pcard-img {
   transform: scale(1.05);
 }
+.pcard:hover .pcard-img.art-photo {
+  transform: none;
+}
 .pcard-flag {
   position: absolute;
   top: 10px;

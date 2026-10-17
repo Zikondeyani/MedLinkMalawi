@@ -43,7 +43,7 @@ export default function AdminProductsPage() {
       header: "Product",
       render: (p) => (
         <div className="row" style={{ gap: 10 }}>
-          <ProductImage productId={p.id} categoryId={p.categoryId} name={p.name} className="table-art" />
+          <ProductImage productId={p.id} categoryId={p.categoryId} name={p.name} imageUrl={p.image ?? p.images[0]} className="table-art" />
           <div>
             <Link to={`/products/${p.slug}`} className="small bold link">{p.name}</Link>
             <div className="xs muted">{getSupplierById(p.supplierId)?.name ?? p.supplierId}</div>

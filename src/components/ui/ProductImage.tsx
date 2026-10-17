@@ -1,4 +1,5 @@
-﻿import { getCategoryById } from "../../lib/registry";
+import { useState } from "react";
+import { getCategoryById } from "../../lib/registry";
 import { hashString } from "../../lib/format";
 import { CategoryIcon } from "./Icon";
 
@@ -17,6 +18,7 @@ export default function ProductImage({
   productId,
   categoryId,
   name,
+  imageUrl,
   className = "",
   height,
   iconName,
@@ -24,15 +26,29 @@ export default function ProductImage({
   productId: string;
   categoryId: string;
   name: string;
+  imageUrl?: string;
   className?: string;
   height?: number;
   iconName?: string;
 }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const category = getCategoryById(categoryId);
   const [c1, c2] = category?.gradient ?? ["#0B1120", "#FFB74D"];
   const variant = artVariants[hashString(productId) % artVariants.length];
   const icon = iconName ?? variant.icon;
   const angle = 135 + (hashString(productId) % 40);
+
+  if (imageUrl && failedUrl !== imageUrl) {
+    return (
+      <img
+        className={`art art-photo ${className}`}
+        src={imageUrl}
+        alt={name}
+        style={{ height, objectFit: "contain", background: "#fff" }}
+        onError={() => setFailedUrl(imageUrl)}
+      />
+    );
+  }
 
   return (
     <div

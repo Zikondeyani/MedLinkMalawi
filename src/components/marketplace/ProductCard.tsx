@@ -39,7 +39,7 @@ export default function ProductCard({ product, compact = false }: { product: Pro
     <article className={`card card-hover pcard${compact ? " pcard-compact" : ""}`}>
       <div className="pcard-img-wrap">
         <Link to={`/products/${product.slug}`} aria-label={product.name}>
-          <ProductImage productId={product.id} categoryId={product.categoryId} name={product.name} className="pcard-img" />
+          <ProductImage productId={product.id} categoryId={product.categoryId} name={product.name} imageUrl={product.image ?? product.images[0]} className="pcard-img" />
         </Link>
         {product.isNew && <span className="pcard-flag">New</span>}
         <button

@@ -66,7 +66,7 @@ export default function CartPage() {
                   {group.lines.map(({ product, quantity }) => (
                     <div key={product.id} className="cart-line">
                       <Link to={`/products/${product.slug}`} className="cart-line-img">
-                        <ProductImage productId={product.id} categoryId={product.categoryId} name={product.name} height={76} />
+                        <ProductImage productId={product.id} categoryId={product.categoryId} name={product.name} imageUrl={product.image ?? product.images[0]} height={76} />
                       </Link>
                       <div className="grow cart-line-info">
                         <Link to={`/products/${product.slug}`} className="small semibold">

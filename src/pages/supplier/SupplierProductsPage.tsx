@@ -64,7 +64,7 @@ export default function SupplierProductsPage() {
       header: "Product",
       render: (p) => (
         <div className="row" style={{ gap: 12 }}>
-          <ProductImage productId={p.id} categoryId={p.categoryId} name={p.name} height={44} className="table-art" />
+          <ProductImage productId={p.id} categoryId={p.categoryId} name={p.name} imageUrl={p.image ?? p.images[0]} height={44} className="table-art" />
           <div>
             <b className="small">{p.name}</b>
             <div className="xs muted">{p.brand} · {p.model}</div>

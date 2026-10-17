@@ -11,17 +11,6 @@ import { useToast } from "../../lib/toast";
 import { SupplierAvatar } from "../../components/marketplace/SupplierCard";
 import FileUploader from "../../components/ui/FileUploader";
 import { describeOwnerFolder, useUploadOwner } from "../../lib/cloudinary";
-import {
-  collect,
-  nonNegative,
-  ok,
-  required,
-  requiredMin,
-  validEmail,
-  validPhone,
-  type FieldErrors,
-} from "../../lib/validate";
-import { ErrorSummary, FieldError, invalidProps } from "../../components/ui/FieldError";
 
 export default function SupplierStorePage() {
   const supplierId = useCurrentSupplierId();
@@ -117,11 +106,17 @@ export default function SupplierStorePage() {
           className="store-preview-banner"
           style={
             banner
-              ? { backgroundImage: `linear-gradient(120deg, rgba(11,17,32,.35), rgba(11,17,32,.35)), url(${banner})`, backgroundSize: "cover", backgroundPosition: "center" }
+              ? {
+                  backgroundImage: `url(${banner})`,
+                  backgroundSize: "contain",
+                  backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat",
+                  backgroundColor: supplier.bannerGradient[0],
+                }
               : { background: `linear-gradient(120deg, ${supplier.bannerGradient[0]}, ${supplier.bannerGradient[1]})` }
           }
         >
-          <div className="bg-grid-pattern" />
+          {!banner && <div className="bg-grid-pattern" />}
           <div className="store-preview-actions">
             <span className="btn btn-outline btn-sm">
               <Camera size={14} />
@@ -142,7 +137,7 @@ export default function SupplierStorePage() {
         </div>
         <div className="store-preview-head">
           {logo ? (
-            <img src={logo} alt="" style={{ width: 68, height: 68, borderRadius: "50%", objectFit: "cover" }} />
+            <img src={logo} alt="" style={{ width: 68, height: 68, borderRadius: "50%", objectFit: "contain", background: "#fff" }} />
           ) : (
             <SupplierAvatar supplier={supplier} size={68} />
           )}
