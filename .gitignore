@@ -12,9 +12,11 @@ dist
 dist-ssr
 *.local
 
-# Environment (Supabase URL + publishable/anon key) — never committed
+# Environment files — never commit local secrets
 .env
 .env.*
+!.env.example
+
 
 # Editor directories and files
 .vscode/*
