@@ -224,6 +224,9 @@
   padding-block: clamp(64px, 8vw, 96px) 110px;
   position: relative;
 }
+.hero-inner > * {
+  min-width: 0;
+}
 .hero-copy {
   position: relative;
   z-index: 2;
@@ -1275,6 +1278,7 @@
   padding: 18px;
   overflow-y: auto;
   max-height: calc(100vh - 140px);
+  max-height: calc(100dvh - 140px);
   position: sticky;
   top: calc(var(--nav-h) + 20px);
 }
@@ -2388,6 +2392,8 @@
     transform: translateX(-102%);
     transition: transform 0.28s var(--ease);
     border-right: 1px solid var(--border);
+    padding-top: calc(18px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   }
   .filter-open {
     transform: translateX(0);
