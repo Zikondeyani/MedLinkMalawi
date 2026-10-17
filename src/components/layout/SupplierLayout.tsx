@@ -137,7 +137,7 @@ export default function SupplierLayout() {
           </Link>
         ) : (
           <Link to="/supplier/verification" className="snav-link" onClick={() => setDrawer(false)}>
-            <ShieldCheck size={15} /> Publish my store
+            <ShieldCheck size={15} /> Verification status
           </Link>
         )}
         <Link to="/" className="snav-link" onClick={() => setDrawer(false)}>

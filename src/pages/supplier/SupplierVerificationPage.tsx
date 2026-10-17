@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BadgeCheck, Check, Clock, Headset, Loader2, Mail, Phone, ShieldCheck, XCircle } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Check, Clock, Headset, Loader2, Mail, Phone, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { KycStatus } from "../../data/types";
 import { useAuth } from "../../lib/auth";
@@ -28,7 +28,7 @@ import { kycStatusLabel, kycStatusTone } from "../../components/supplier/KycStat
  * and an application can be in any of three states, so this page shows the
  * right thing for each:
  *
- *   no application → the same wizard, pre-filled with their account details
+ *   no application → show the sign-up submission being linked to the account
  *   pending        → read-only, so documents cannot change mid-review
  *   rejected       → the same wizard, pre-filled with what they sent, and a
  *                    resubmit that puts the row back in the queue
@@ -36,7 +36,7 @@ import { kycStatusLabel, kycStatusTone } from "../../components/supplier/KycStat
  */
 export default function SupplierVerificationPage() {
   const { user } = useAuth();
-  const { loading } = useDataStatus();
+  const { loading, error } = useDataStatus();
   const application = useOwnApplication();
   const { push } = useToast();
 
@@ -114,6 +114,29 @@ export default function SupplierVerificationPage() {
     );
   }
 
+  if (error && !application) {
+    return (
+      <div className="container page">
+        <div className="card card-pad" style={{ maxWidth: 640, marginInline: "auto" }}>
+          <div className="row" style={{ gap: 10, marginBottom: 10 }}>
+            <AlertTriangle size={20} className="amber" />
+            <h1 className="h-card">We couldn’t load your verification status</h1>
+          </div>
+          <p className="small muted">
+            Your submitted application has not been changed. Please try again to check its status. If this
+            continues, contact <a className="link" href="mailto:sellers@medlink.mw">sellers@medlink.mw</a>.
+          </p>
+          <div className="row wrap" style={{ gap: 10, marginTop: 14 }}>
+            <button className="btn btn-primary" onClick={() => void loadMarketplace()}>
+              <RefreshCw size={15} /> Try again
+            </button>
+            <Link to="/supplier" className="btn btn-outline">Back to dashboard</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   /* -------------------- approved: nothing to do -------------------- */
   if (status === "approved") {
     return (
@@ -144,59 +167,64 @@ export default function SupplierVerificationPage() {
         <div className="page-head">
           <div>
             <span className="eyebrow">Supplier verification</span>
-            <h1 className="h-section">Your KYC is with our compliance team</h1>
+            <h1 className="h-section">Your verification is in progress</h1>
           </div>
           <span className={`badge ${kycStatusTone("pending")}`}>
             <Clock size={11} /> {kycStatusLabel("pending")}
           </span>
         </div>
 
+        <VerificationProgress submittedAt={application?.submittedAt} reference={application?.ref} />
+
         <div className="split apply-layout">
           <div className="card card-pad">
             <div className="row" style={{ gap: 10, marginBottom: 14 }}>
               <ShieldCheck size={20} className="teal" />
               <div>
-                <b className="small">Submitted {shortDate(application!.submittedAt)}</b>
+                <b className="small">
+                  {application ? `Submitted ${shortDate(application.submittedAt)}` : "Submitted during sign-up"}
+                </b>
                 <p className="xs muted" style={{ margin: 0 }}>
-                  Reference {application!.ref} · {application!.businessName}
+                  {application
+                    ? `Reference ${application.ref} · ${application.businessName}`
+                    : "Your application is being matched to your supplier account."}
                 </p>
               </div>
             </div>
 
-            <div className="review-grid card">
+            {application && <div className="review-grid card">
               <div className="review-col">
                 <span className="eyebrow">Business</span>
-                <div className="summary-row"><span>Name</span><b>{application!.businessName}</b></div>
-                <div className="summary-row"><span>Type</span><b>{application!.businessType}</b></div>
-                <div className="summary-row"><span>Category</span><b>{application!.categoryFocus}</b></div>
+                <div className="summary-row"><span>Name</span><b>{application.businessName}</b></div>
+                <div className="summary-row"><span>Type</span><b>{application.businessType}</b></div>
+                <div className="summary-row"><span>Category</span><b>{application.categoryFocus}</b></div>
               </div>
               <div className="review-col">
                 <span className="eyebrow">Contact</span>
-                <div className="summary-row"><span>Email</span><b>{application!.email}</b></div>
-                <div className="summary-row"><span>Phone</span><b>{application!.phone}</b></div>
-                <div className="summary-row"><span>Location</span><b>{application!.city} · {application!.area}</b></div>
+                <div className="summary-row"><span>Email</span><b>{application.email}</b></div>
+                <div className="summary-row"><span>Phone</span><b>{application.phone}</b></div>
+                <div className="summary-row"><span>Location</span><b>{application.city} · {application.area}</b></div>
               </div>
               <div className="review-col">
                 <span className="eyebrow">KYC</span>
-                <div className="summary-row"><span>Reg. number</span><b>{application!.registrationNumber}</b></div>
-                <div className="summary-row"><span>Director</span><b>{application!.directorName}</b></div>
-                <div className="summary-row"><span>ID</span><b>{application!.directorIdType} · ••••</b></div>
+                <div className="summary-row"><span>Reg. number</span><b>{application.registrationNumber}</b></div>
+                <div className="summary-row"><span>Director</span><b>{application.directorName}</b></div>
+                <div className="summary-row"><span>ID</span><b>{application.directorIdType} · ••••</b></div>
               </div>
               <div className="review-col">
                 <span className="eyebrow">Documents</span>
-                {application!.documents.map((d) => (
+                {application.documents.map((d) => (
                   <div key={d.label} className="summary-row">
                     <span>{d.label}</span>
                     <b className="row" style={{ gap: 4 }}><Check size={13} className="green" /> {d.name}</b>
                   </div>
                 ))}
               </div>
-            </div>
+            </div>}
 
             <p className="small muted" style={{ marginTop: 14 }}>
-              We are not editing anything while the review is running, so the details your reviewer sees stay
-              exactly as submitted. If MedLink asks for a change you will get a rejection with the reason, and
-              this page turns into an editable form.
+              No action is needed while the review is running. We’ll notify you when MedLink has completed the
+              checks or if any changes are needed.
             </p>
             <div className="row wrap" style={{ gap: 10, marginTop: 8 }}>
               <Link to="/supplier" className="btn btn-outline">Back to dashboard</Link>
@@ -204,6 +232,34 @@ export default function SupplierVerificationPage() {
           </div>
 
           <VerifyAside />
+        </div>
+      </div>
+    );
+  }
+
+  /* -------------------- submitted during sign-up -------------------- */
+  if (status === "none" && !justResubmitted) {
+    return (
+      <div className="container page">
+        <div className="page-head">
+          <div>
+            <span className="eyebrow">Supplier verification</span>
+            <h1 className="h-section">Your verification is in progress</h1>
+          </div>
+          <span className={`badge ${kycStatusTone("pending")}`}>
+            <Clock size={11} /> Under review
+          </span>
+        </div>
+        <VerificationProgress />
+        <div className="card card-pad" style={{ maxWidth: 720, margin: "20px auto 0" }}>
+          <p className="small muted">
+            Your verification details were submitted during sign-up and are being matched to your supplier
+            account. No further action is needed. We’ll notify you once the MedLink team completes its review.
+            If you need help, contact <a className="link" href="mailto:sellers@medlink.mw">sellers@medlink.mw</a>.
+          </p>
+          <div className="row wrap" style={{ gap: 10, marginTop: 14 }}>
+            <Link to="/supplier" className="btn btn-outline">Back to dashboard</Link>
+          </div>
         </div>
       </div>
     );
@@ -287,6 +343,49 @@ export default function SupplierVerificationPage() {
         </p>
       )}
     </div>
+  );
+}
+
+function VerificationProgress({
+  submittedAt,
+  reference,
+}: {
+  submittedAt?: string;
+  reference?: string;
+}) {
+  return (
+    <section className="card card-pad verification-progress" aria-label="Verification progress">
+      <div className="between wrap" style={{ marginBottom: 14 }}>
+        <div>
+          <span className="eyebrow">Review process</span>
+          <h2 className="h-card" style={{ marginTop: 4 }}>MedLink is reviewing your application</h2>
+        </div>
+        {reference && <span className="badge badge-soft">Reference {reference}</span>}
+      </div>
+      <div className="kyc-track">
+        <div className="kyc-step kyc-done">
+          <span className="kyc-dot"><Check size={14} /></span>
+          <div>
+            <b className="small">Application submitted</b>
+            <p className="xs muted">{submittedAt ? shortDate(submittedAt) : "Submitted during sign-up"}</p>
+          </div>
+        </div>
+        <div className="kyc-step kyc-current">
+          <span className="kyc-dot"><Clock size={14} /></span>
+          <div>
+            <b className="small">MedLink team review</b>
+            <p className="xs muted">Our compliance team is checking your business details and documents.</p>
+          </div>
+        </div>
+        <div className="kyc-step">
+          <span className="kyc-dot">3</span>
+          <div>
+            <b className="small">Decision and notification</b>
+            <p className="xs muted">We’ll let you know when the review is complete.</p>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 

@@ -516,7 +516,8 @@ export async function fetchOwnApplication(): Promise<SupplierApplication | undef
     .order("submitted_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error || !data) return undefined;
+  if (error) throw new Error(error.message);
+  if (!data) return undefined;
   return toApplication(data);
 }
 

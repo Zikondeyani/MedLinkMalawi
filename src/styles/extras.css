@@ -611,6 +611,13 @@
   text-align: left;
   margin-bottom: 22px;
 }
+.verification-progress {
+  margin-bottom: 18px;
+}
+.verification-progress .kyc-track {
+  width: 100%;
+  margin-bottom: 0;
+}
 .kyc-step {
   position: relative;
   display: flex;

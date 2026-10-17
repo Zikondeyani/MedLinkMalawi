@@ -13,11 +13,11 @@
    It is a no-op for customers and admins, so it can be mounted once
    in the shared layouts.
    ============================================================ */
-import { AlertTriangle, ArrowRight, Clock, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowRight, Clock, RefreshCw, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { KycStatus } from "../../data/types";
 import { useAuth } from "../../lib/auth";
-import { useDataStatus, useOwnApplication } from "../../lib/registry";
+import { refreshMarketplace, useDataStatus, useOwnApplication } from "../../lib/registry";
 
 export function kycStatusLabel(status: KycStatus): string {
   if (status === "approved") return "Verified";
@@ -33,7 +33,7 @@ export function kycStatusTone(status: KycStatus): string {
 
 export default function KycStatusBanner() {
   const { user } = useAuth();
-  const { loading } = useDataStatus();
+  const { loading, error } = useDataStatus();
   const application = useOwnApplication();
 
   // Only a supplier has a KYC to be waiting on.
@@ -67,15 +67,33 @@ export default function KycStatusBanner() {
       <div className="kyc-banner kyc-banner-amber" role="status">
         <Clock size={18} className="shrink-0" />
         <div className="grow">
-          <b className="small">KYC under review — reference {application.ref}</b>
+          <b className="small">Your supplier verification is being handled by MedLink</b>
           <p className="xs" style={{ marginTop: 2 }}>
-            You can use every part of your supplier dashboard now. Your store and products stay hidden from
-            buyers until MedLink approves the verification.
+            Our team is reviewing your submission. We’ll notify you when the review is complete. Your store
+            and products will be visible to buyers once approved.
           </p>
         </div>
         <Link to="/supplier/verification" className="btn btn-sm btn-outline shrink-0">
-          View submission
+          View progress
         </Link>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="kyc-banner kyc-banner-red" role="status">
+        <AlertTriangle size={18} className="shrink-0" />
+        <div className="grow">
+          <b className="small">We couldn’t confirm your verification status</b>
+          <p className="xs" style={{ marginTop: 2 }}>
+            Your submitted application hasn’t been changed. Try loading your status again, or contact MedLink if
+            this continues.
+          </p>
+        </div>
+        <button className="btn btn-sm btn-outline shrink-0" onClick={() => void refreshMarketplace()}>
+          <RefreshCw size={14} /> Try again
+        </button>
       </div>
     );
   }
@@ -84,15 +102,12 @@ export default function KycStatusBanner() {
     <div className="kyc-banner kyc-banner-amber" role="status">
       <ShieldCheck size={18} className="shrink-0" />
       <div className="grow">
-        <b className="small">Finish your supplier verification to publish your store</b>
+        <b className="small">Your supplier verification is being handled by MedLink</b>
         <p className="xs" style={{ marginTop: 2 }}>
-          Your dashboard, products and settings all work now. Buyers only see your store once MedLink has
-          verified your business.
+          We’re matching the verification details submitted during sign-up to your account. We’ll notify you
+          when the review is complete. No further action is needed from you.
         </p>
       </div>
-      <Link to="/supplier/verification" className="btn btn-sm btn-primary shrink-0">
-        {application ? "Continue verification" : "Start verification"} <ArrowRight size={14} />
-      </Link>
     </div>
   );
 }
