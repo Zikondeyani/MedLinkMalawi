@@ -2440,6 +2440,9 @@
   .checkout-layout {
     grid-template-columns: 1fr;
   }
+  .checkout-layout .checkout-aside {
+    order: -1;
+  }
   .order-details .split,
   .store-page .split {
     grid-template-columns: 1fr;
@@ -2521,14 +2524,103 @@
     grid-column: 3;
   }
   .cart-line {
-    grid-template-columns: 64px 1fr;
+    grid-template-columns: 64px minmax(0, 1fr);
+    align-items: start;
+    gap: 10px 12px;
+    padding: 14px 12px;
   }
   .cart-line-img {
     width: 64px;
+    grid-row: 1 / span 2;
   }
   .cart-line-sub {
     grid-column: 2;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
     text-align: left;
+    margin-top: -5px;
+  }
+  .cart-line-sub b,
+  .cart-line-sub small {
+    white-space: nowrap;
+  }
+  .cart-line-info {
+    min-width: 0;
+  }
+  .cart-line-info > a:first-child {
+    display: block;
+    overflow-wrap: anywhere;
+  }
+  .cart-line-info .xs {
+    overflow-wrap: anywhere;
+  }
+  .cart-group-head {
+    gap: 9px;
+    padding: 12px;
+  }
+  .cart-group-head > .badge {
+    flex: none;
+    max-width: 112px;
+    white-space: normal;
+    text-align: center;
+  }
+  .cart-group-foot {
+    padding: 12px;
+  }
+  .checkout-summary {
+    padding: 18px;
+  }
+  .checkout-summary .summary-row {
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .checkout-summary .summary-row > span {
+    min-width: 0;
+  }
+  .checkout-summary .summary-row > b,
+  .checkout-summary .summary-row > em {
+    flex: none;
+    max-width: 48%;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+  .checkout-summary .summary-row > b {
+    white-space: nowrap;
+  }
+  .checkout-summary .summary-total b {
+    font-size: clamp(18px, 5vw, 21px);
+  }
+  .checkout-summary .checkout-summary-note {
+    display: block;
+    margin-top: 8px !important;
+    line-height: 1.4;
+  }
+  .checkout-aside .secure-note {
+    display: none;
+  }
+  .review-line {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: start;
+  }
+  .review-line .grow {
+    min-width: 0;
+  }
+  .review-line .grow > b {
+    display: block;
+    overflow-wrap: anywhere;
+  }
+  .review-line > b {
+    max-width: none;
+    text-align: right;
+    white-space: nowrap;
+    font-size: 12px;
+  }
+  .review-group {
+    min-width: 0;
   }
   .store-head-actions {
     margin-left: 0;

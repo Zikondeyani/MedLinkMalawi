@@ -52,9 +52,8 @@ export default function CheckoutSummary({
           </div>
         </>
       )}
-      <p className="xs muted" style={{ marginTop: 12 }}>
-        Product value goes to suppliers. MedLink charges a {ratePct}% service fee plus delivery on every order —
-        MedLink handles collection and delivery of each order in this summary.
+      <p className="xs muted checkout-summary-note" style={{ marginTop: 12 }}>
+        MedLink handles collection and delivery. Service and delivery fees are shown above.
       </p>
     </div>
   );
